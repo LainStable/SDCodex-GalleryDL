@@ -31,17 +31,13 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 <body class="bg-background text-on-surface antialiased min-h-screen font-body">
 <div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
 
-  <!-- Plugin nav -->
+  <!-- Plugin nav (tabs live in the app sidebar) -->
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <!-- Plugin nav -->
   <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
     <span class="flex items-center gap-2 text-white font-semibold mr-2">
       <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
-      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
-    </span>
-    <a href="tasks.html" class="rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1.5 text-white">Tasks</a>
-    <a href="one-time.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Quick Download</a>
-    <a href="kiosks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Kiosks</a>
-    <a href="oauth.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">OAuth</a>
-    <a href="logs.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Logs</a>
+    <span class="text-ink-faint">· Tasks</span>
   </nav>
 
   <!-- Header banner -->
@@ -286,6 +282,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   }
   void refresh();
   setInterval(refresh, 5000);
+})();
+</script>
+<script>
+(function () {
+  const m = location.pathname.match(/\/plugins\/([^/]+)\/page\//);
+  if (!m) return;
+  const base = `/api/plugins/${m[1]}/page/`;
+  document.querySelectorAll('a[href$=".html"]').forEach((a) => {
+    const name = a.getAttribute('href').replace(/\.html$/, '');
+    a.setAttribute('href', base + name);
+  });
 })();
 </script>
 </body>
