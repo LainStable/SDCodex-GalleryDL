@@ -27,9 +27,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 .scroll-thin::-webkit-scrollbar-track { background: #0a0e17; }
 .scroll-thin::-webkit-scrollbar-thumb { background: #31353f; border-radius: 4px; }
 </style>
+<style>
+/* iframe-width guards: never force the page wider than the frame */
+.gdl-page { max-width: 100%; overflow-x: clip; }
+.gdl-page table { table-layout: fixed; width: 100%; }
+.gdl-page pre { white-space: pre-wrap; word-break: break-word; }
+.gdl-page [class*="col-span"] { min-width: 0; }
+.gdl-page img { max-width: 100%; }
+</style>
 </head>
 <body class="bg-background text-on-surface antialiased min-h-screen font-body">
-<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+<div class="gdl-page mx-auto max-w-full p-4 md:p-6 flex flex-col gap-6">
 
   <!-- Plugin nav (tabs live in the app sidebar) -->
   <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
@@ -71,9 +79,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
   </section>
 
-  <div class="grid grid-cols-12 gap-6 items-start">
+  <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
     <!-- Queue table -->
-    <div class="col-span-12 lg:col-span-8 rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="col-span-1 xl:col-span-8 min-w-0 rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
       <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
@@ -106,7 +114,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
 
     <!-- Right column -->
-    <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+    <div class="col-span-1 xl:col-span-4 min-w-0 flex flex-col gap-6">
       <!-- Terminal -->
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
         <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
