@@ -1,0 +1,41 @@
+{
+  "id": "gallery-dl",
+  "name": "GalleryDL & Tools",
+  "version": "0.1.0",
+  "description": "Background gallery-dl and yt-dlp task management, quick downloads, kiosks, OAuth configuration, and a persistent activity log.",
+  "author": "LainStable",
+  "repository": "https://github.com/LainStable/SDCodex-GalleryDL",
+  "icon": "⤓",
+  "nav_items": [
+    {"label": "Tasks", "icon": "☰", "page": "tasks"},
+    {"label": "Quick Download", "icon": "⤓", "page": "one-time"},
+    {"label": "Kiosks", "icon": "▣", "page": "kiosks"},
+    {"label": "OAuth", "icon": "⚿", "page": "oauth"},
+    {"label": "Logs", "icon": "≡", "page": "logs"}
+  ],
+  "settings": [
+    {"label": "GDL Config", "page": "config"},
+    {"label": "GDL Scheduler", "page": "scheduler"},
+    {"label": "GDL Backup", "page": "backup"}
+  ],
+  "volumes": [
+    {
+      "env_var": "TASKS",
+      "host_path": "./tasks",
+      "container_path": "/data/tasks",
+      "description": "Directory for background task definitions, outputs and logs"
+    },
+    {
+      "env_var": "CONFIG",
+      "host_path": "./config",
+      "container_path": "/data/config",
+      "description": "Directory for gallery-dl.conf, kiosk configurations, and secrets"
+    },
+    {
+      "env_var": "IMAGES",
+      "host_path": "./downloads",
+      "container_path": "/data/downloads",
+      "description": "Output directory for quick downloads and tools"
+    }
+  ]
+}
