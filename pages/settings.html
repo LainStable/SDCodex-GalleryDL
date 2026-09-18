@@ -55,14 +55,6 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       </div>
     </div>
 
-    <div class="flex flex-col gap-6">
-      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
-        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">schedule</span><h2 class="font-display font-semibold">Task Scheduler</h2></div>
-        <p class="font-mono text-[11px] text-outline">Recurring runs are armed per task with a cron line in <span class="text-secondary">cron.txt</span> inside the task folder. The runner picks them up automatically.</p>
-        <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-outline">example cron.txt:<br/><span class="text-secondary">0 */6 * * *</span> <span class="text-ink-faint"># every 6 hours</span></div>
-        <div id="sched-list" class="font-mono text-[11px] text-outline">loading…</div>
-      </div>
-
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">history</span><h2 class="font-display font-semibold">Backup &amp; Restore</h2></div>
         <p class="font-mono text-[11px] text-outline">Task definitions only (urls, commands, statuses) — media stays on disk.</p>
@@ -71,6 +63,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <label class="cursor-pointer rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Restore backup<input id="restore-file" type="file" accept=".tar.gz,.tgz" class="hidden"/></label>
         </div>
         <span id="restore-msg" class="font-mono text-[10px] text-ink-faint"></span>
+
+    <div class="flex flex-col gap-6">
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">schedule</span><h2 class="font-display font-semibold">Task Scheduler</h2></div>
+        <p class="font-mono text-[11px] text-outline">Recurring runs are armed per task with a cron line in <span class="text-secondary">cron.txt</span> inside the task folder. The runner picks them up automatically.</p>
+        <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-outline">example cron.txt:<br/><span class="text-secondary">0 */6 * * *</span> <span class="text-ink-faint"># every 6 hours</span></div>
+        <div id="sched-list" class="font-mono text-[11px] text-outline">loading…</div>
+      </div>
+
       </div>
     </div>
   </div>
