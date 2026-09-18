@@ -509,6 +509,99 @@ def kiosk_delete(kid: str):
     return jsonify({"ok": True})
 
 
+@gdl_api.get("/config")
+def config_read():
+    """gallery-dl.conf content (single settings page)."""
+    if not _authed():
+        return _deny()
+    path = os.path.join(config_dir(), "gallery-dl.conf")
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        content = '{\n  "extractor": {\n    "filename": "{category}/{artist}_{id}_{title[:30]}",\n    "keywords": "images"\n  }\n}\n'
+    return jsonify({"path": path, "content": content})
+
+
+@gdl_api.post("/config")
+def config_write():
+    if not _authed():
+        return _deny()
+    data = request.get_json(force=True, silent=True) or {}
+    content = data.get("content", "")
+    if not isinstance(content, str) or len(content) > 200_000:
+        return jsonify({"error": "bad content"}), 400
+    try:
+        parsed = json.loads(content)
+        if not isinstance(parsed, dict):
+            raise ValueError("top-level JSON object required")
+    except Exception as e:
+        return jsonify({"error": f"invalid JSON: {e}"}), 400
+    path = os.path.join(config_dir(), "gallery-dl.conf")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return jsonify({"ok": True, "path": path})
+
+
+@gdl_api.get("/backup")
+def backup_download():
+    """Task definitions as a tar.gz (urls, commands, statuses — no media)."""
+    if not _authed():
+        return _deny()
+    import io
+    import tarfile
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        base = tasks_dir()
+        for slug in sorted(os.listdir(base)):
+            bp = os.path.join(base, slug)
+            if not os.path.isdir(bp):
+                continue
+            for fn in ("urls.txt", "command.txt", "status.json", "cron.txt"):
+                fp = os.path.join(bp, fn)
+                if os.path.isfile(fp):
+                    tar.add(fp, arcname=os.path.join(slug, fn))
+    buf.seek(0)
+    from flask import send_file
+
+    return send_file(buf, mimetype="application/gzip",
+                     as_attachment=True, download_name="gallerydl-tasks-backup.tar.gz")
+
+
+@gdl_api.post("/restore")
+def backup_restore():
+    """Restore a backup tar.gz into the tasks dir (skips existing slugs)."""
+    if not _authed():
+        return _deny()
+    import io
+    import tarfile
+
+    if "file" not in request.files:
+        return jsonify({"error": "file field required"}), 400
+    try:
+        data = request.files["file"].read()
+        restored, skipped = [], []
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+            for member in tar.getmembers():
+                if not member.isfile():
+                    continue
+                parts = member.name.replace("\\", "/").split("/")
+                if len(parts) != 2 or parts[0] in ("", ".", "..") or ".." in parts:
+                    continue
+                dest = os.path.join(tasks_dir(), parts[0], parts[1])
+                if os.path.exists(dest):
+                    skipped.append(member.name)
+                    continue
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "wb") as f:
+                    f.write(tar.extractfile(member).read())
+                restored.append(member.name)
+        return jsonify({"ok": True, "restored": len(restored), "skipped": len(skipped)})
+    except Exception as e:
+        return jsonify({"error": str(e)[:200]}), 400
+
+
 @gdl_api.get("/media/recent")
 def media_recent():
     """Newest image/video files under the downloads dir (filmstrip)."""

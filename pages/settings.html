@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GalleryDL — Settings · SDCodex</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = { darkMode: "class", theme: { extend: { colors: {
+  background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
+  "surface-container-low": "#181b25", "surface-container": "#1c1f29",
+  "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
+  "slate-surface": "#1E293B",
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
+  primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
+  "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen font-body">
+<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <span class="flex items-center gap-2 text-white font-semibold mr-2">
+      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
+      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
+    </span>
+    <span class="text-ink-faint">· Settings</span>
+  </nav>
+
+  <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
+    <h1 class="font-display text-2xl font-bold tracking-tight flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">tune</span>GalleryDL Settings</h1>
+    <p class="mt-1 font-mono text-[11px] text-outline">Engine config, task scheduler defaults, and backup &amp; restore — one page.</p>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">settings</span><h2 class="font-display font-semibold">gallery-dl.conf</h2></div>
+        <span id="conf-path" class="font-mono text-[10px] text-outline"></span>
+      </div>
+      <textarea id="conf-text" rows="16" spellcheck="false" class="w-full rounded-lg border border-outline-variant/40 bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-secondary focus:outline-none focus:border-badge-checkpoint"></textarea>
+      <div class="flex items-center gap-2">
+        <button id="conf-save" class="rounded-lg bg-badge-checkpoint px-4 py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save config</button>
+        <span id="conf-msg" class="font-mono text-[10px] text-ink-faint"></span>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">schedule</span><h2 class="font-display font-semibold">Task Scheduler</h2></div>
+        <p class="font-mono text-[11px] text-outline">Recurring runs are armed per task with a cron line in <span class="text-secondary">cron.txt</span> inside the task folder. The runner picks them up automatically.</p>
+        <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-outline">example cron.txt:<br/><span class="text-secondary">0 */6 * * *</span> <span class="text-ink-faint"># every 6 hours</span></div>
+        <div id="sched-list" class="font-mono text-[11px] text-outline">loading…</div>
+      </div>
+
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">history</span><h2 class="font-display font-semibold">Backup &amp; Restore</h2></div>
+        <p class="font-mono text-[11px] text-outline">Task definitions only (urls, commands, statuses) — media stays on disk.</p>
+        <div class="flex flex-wrap gap-2">
+          <a href="/gdl/api/backup" class="rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Download backup</a>
+          <label class="cursor-pointer rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Restore backup<input id="restore-file" type="file" accept=".tar.gz,.tgz" class="hidden"/></label>
+        </div>
+        <span id="restore-msg" class="font-mono text-[10px] text-ink-faint"></span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  async function load() {
+    try {
+      const r = await (await fetch('/gdl/api/config', { credentials: 'same-origin' })).json();
+      $('conf-text').value = r.content || '';
+      $('conf-path').textContent = r.path || '';
+    } catch (e) { $('conf-msg').textContent = 'load failed'; }
+    try {
+      const t = await (await fetch('/gdl/api/tasks', { credentials: 'same-origin' })).json();
+      const tasks = (t.tasks || []).map((x) => `<div>${esc(x.name)} <span class="text-ink-faint">· ${esc(x.state)}</span></div>`).join('');
+      $('sched-list').innerHTML = tasks || 'no tasks yet';
+    } catch (e) { $('sched-list').textContent = 'load failed'; }
+  }
+  $('conf-save').addEventListener('click', async () => {
+    $('conf-msg').textContent = 'saving…';
+    try {
+      const r = await fetch('/gdl/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ content: $('conf-text').value }) });
+      const j = await r.json();
+      $('conf-msg').textContent = j.ok ? 'saved' : ('error: ' + (j.error || r.status));
+    } catch (e) { $('conf-msg').textContent = 'save failed'; }
+  });
+  $('restore-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    $('restore-msg').textContent = 'restoring…';
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const r = await fetch('/gdl/api/restore', { method: 'POST', credentials: 'same-origin', body: fd });
+      const j = await r.json();
+      $('restore-msg').textContent = j.ok ? `restored ${j.restored}, skipped ${j.skipped}` : ('error: ' + (j.error || r.status));
+    } catch (err) { $('restore-msg').textContent = 'restore failed'; }
+    e.target.value = '';
+  });
+  void load();
+})();
+</script>
+</body>
+</html>

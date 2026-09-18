@@ -35,16 +35,8 @@
   ],
   "settings": [
     {
-      "label": "GDL Config",
-      "page": "config"
-    },
-    {
-      "label": "GDL Scheduler",
-      "page": "scheduler"
-    },
-    {
-      "label": "GDL Backup",
-      "page": "backup"
+      "label": "GalleryDL",
+      "page": "settings"
     }
   ],
   "volumes": [
