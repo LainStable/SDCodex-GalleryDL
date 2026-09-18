@@ -48,11 +48,11 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <h1 class="font-display font-semibold">Quick Scrape Console</h1></div>
         <span class="rounded-[3px] bg-surface-container px-2 py-0.5 font-mono text-[10px] text-outline">CLI Args Sync</span>
       </div>
-      <form class="flex flex-col gap-3" onsubmit="event.preventDefault()">
+      <form id="quick-form" class="flex flex-col gap-3" onsubmit="event.preventDefault()">
         <div class="flex flex-col gap-1">
           <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Target URL / Profile Feed</label>
           <div class="relative">
-            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" type="text" value="https://twitter.com/ai_artist_zero/media"/>
+            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" id="q-url" type="text" value="" placeholder="https://…/media"/>
             <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">link</span>
           </div>
         </div>
@@ -96,7 +96,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <button class="mt-2 w-full rounded-lg bg-badge-checkpoint py-2.5 font-mono text-xs font-semibold text-white flex items-center justify-center gap-2 ring-1 ring-white/20">
           <span class="material-symbols-outlined text-sm">rocket_launch</span> Enqueue &amp; Launch Scraper
         </button>
-      </form>
+            <div id="quick-status" class="font-mono text-[11px] text-outline"></div>
+      <div id="quick-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-56 overflow-y-auto flex flex-col gap-1"></div>
+    </form>
     </div>
 
     <!-- Resolved CLI preview + one-shot history -->
@@ -134,5 +136,41 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
   </div>
 </div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let job = null, timer = null;
+  async function post(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}), credentials: 'same-origin' });
+    if (!r.ok) throw new Error(url + ' ' + r.status);
+    return r.json();
+  }
+  $('quick-form').addEventListener('submit', async () => {
+    const url = $('q-url').value.trim();
+    if (!url) return;
+    const btn = $('quick-form').querySelector('button[type="submit"], button:last-child');
+    try {
+      const r = await post('/gdl/api/quick', { url, images_only: true, min_width: 1024 });
+      job = r.job;
+      $('quick-status').innerHTML = '<span class="text-secondary">launched ' + esc(job) + ' — streaming…</span>';
+      clearInterval(timer);
+      timer = setInterval(poll, 3000);
+      void poll();
+    } catch (e) { $('quick-status').innerHTML = '<span class="text-status-alert">launch failed: ' + esc(e.message) + '</span>'; }
+  });
+  async function poll() {
+    if (!job) return;
+    try {
+      const r = await (await fetch('/gdl/api/quick/' + job, { credentials: 'same-origin' })).json();
+      const box = $('quick-log');
+      box.innerHTML = (r.log || []).slice(-60).map((l) => '<div class="text-outline">' + esc(l) + '</div>').join('');
+      box.scrollTop = box.scrollHeight;
+      $('quick-status').innerHTML = 'state: <span class="text-white font-bold">' + esc(r.state) + '</span>';
+      if (['done', 'error', 'stopped'].includes(r.state)) clearInterval(timer);
+    } catch (e) { /* retry */ }
+  }
+})();
+</script>
 </body>
 </html>

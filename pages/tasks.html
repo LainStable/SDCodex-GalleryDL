@@ -51,10 +51,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <h1 class="font-display text-2xl font-bold tracking-tight">Batch Scraper &amp; Media Kiosk</h1>
       <div class="flex items-center gap-2 flex-wrap font-mono text-[11px]">
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
-          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> gallery-dl <span class="text-secondary font-semibold">1.28.3 active</span>
+          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> gallery-dl <span id="eng-gdl" class="text-secondary font-semibold">…</span>
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
-          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> yt-dlp <span class="text-badge-sdxl font-semibold">2026.08 engine ready</span>
+          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> yt-dlp <span id="eng-ytdlp" class="text-badge-sdxl font-semibold">…</span>
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
           <span class="material-symbols-outlined text-xs text-status-warning">speed</span>
@@ -82,7 +82,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
           <h2 class="font-display text-base font-semibold">Active Ingestion Pipeline &amp; Queue</h2>
-          <span class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">4 Active</span>
+          <span id="active-count" class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">…</span>
         </div>
         <div class="flex items-center gap-1 text-outline">
           <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Pause All"><span class="material-symbols-outlined text-sm">pause</span></button>
@@ -102,54 +102,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
               <th class="py-2.5 px-5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-outline-variant/20">
-            <tr class="hover:bg-slate-surface/40">
-              <td class="py-3 px-5"><div class="font-semibold text-white">/u/CyberGhost_RenderLab/images</div><div class="text-outline truncate max-w-xs">civitai.com/user/CyberGhost/posts</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 text-badge-sdxl font-semibold">Civitai</span></td>
-              <td class="py-3 px-5"><div class="flex justify-between text-[10px] text-outline"><span>420 / 500 items</span><span class="text-white font-bold">84%</span></div>
-                <div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:84%"></div></div></td>
-              <td class="py-3 px-5"><div class="text-status-active font-semibold">14.8 MB/s</div><div class="text-outline text-[10px]">ETA: 00:01:14</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/40 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active animate-pulse"></span>Downloading</span></td>
-              <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Pause"><span class="material-symbols-outlined text-xs">pause</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-badge-sdxl" title="Open Local Target"><span class="material-symbols-outlined text-xs">folder_open</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Abort Job"><span class="material-symbols-outlined text-xs">close</span></button></div></td>
-            </tr>
-            <tr class="hover:bg-slate-surface/40">
-              <td class="py-3 px-5"><div class="font-semibold text-white">artstation.com/artist/k_solov</div><div class="text-outline truncate max-w-xs">Albums: SciFi Mecha Concept [All 4K]</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 text-secondary font-semibold">ArtStation</span></td>
-              <td class="py-3 px-5"><div class="flex justify-between text-[10px] text-outline"><span>Harvesting metadata…</span><span class="text-secondary font-bold">Stage 2</span></div>
-                <div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-secondary w-2/5 rounded-full animate-pulse"></div></div></td>
-              <td class="py-3 px-5"><div class="text-secondary font-semibold">Scanning</div><div class="text-outline text-[10px]">API Query</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-secondary/40 bg-secondary/15 px-2 py-0.5 text-[10px] font-bold text-secondary"><span class="h-1.5 w-1.5 rounded-full bg-secondary"></span>Extracting</span></td>
-              <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-warning"><span class="material-symbols-outlined text-xs">pause</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-badge-sdxl"><span class="material-symbols-outlined text-xs">folder_open</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-alert"><span class="material-symbols-outlined text-xs">close</span></button></div></td>
-            </tr>
-            <tr class="hover:bg-slate-surface/40">
-              <td class="py-3 px-5"><div class="font-semibold text-white">r/UnrealEngine/top/?t=month</div><div class="text-outline truncate max-w-xs">Flair: Showcase + Tech Demo Video</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-flux/30 bg-badge-flux/10 px-2 py-0.5 text-badge-flux font-semibold">Reddit</span></td>
-              <td class="py-3 px-5"><div class="flex justify-between text-[10px] text-outline"><span>184 / 650 items</span><span class="text-status-warning font-bold">28%</span></div>
-                <div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-status-warning rounded-full" style="width:28%"></div></div></td>
-              <td class="py-3 px-5"><div class="text-status-warning font-semibold">0.0 KB/s</div><div class="text-outline text-[10px]">Resume in 24s</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning"><span class="h-1.5 w-1.5 rounded-full bg-status-warning"></span>Backoff 429</span></td>
-              <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-active"><span class="material-symbols-outlined text-xs">play_arrow</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-badge-sdxl"><span class="material-symbols-outlined text-xs">folder_open</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-status-alert"><span class="material-symbols-outlined text-xs">close</span></button></div></td>
-            </tr>
-            <tr class="hover:bg-slate-surface/40">
-              <td class="py-3 px-5"><div class="font-semibold text-white">pixiv.net/users/3891040/artworks</div><div class="text-outline truncate max-w-xs">Original anime illustration dataset</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-lora/30 bg-badge-lora/10 px-2 py-0.5 text-badge-lora font-semibold">Pixiv</span></td>
-              <td class="py-3 px-5"><div class="flex justify-between text-[10px] text-outline"><span>128 / 128 items</span><span class="text-status-active font-bold">100%</span></div>
-                <div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-status-active w-full rounded-full"></div></div></td>
-              <td class="py-3 px-5"><div class="text-outline font-semibold">Complete</div><div class="text-outline text-[10px]">1.8 GB stored</div></td>
-              <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/30 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="material-symbols-outlined text-[12px]">check</span>Finished</span></td>
-              <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">
-                <button class="p-1 rounded hover:bg-surface-container hover:text-badge-sdxl" title="Send to Dataset Tagger"><span class="material-symbols-outlined text-xs">auto_fix_high</span></button>
-                <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Inspect Folder"><span class="material-symbols-outlined text-xs">folder_open</span></button></div></td>
-            </tr>
+          <tbody id="job-rows" class="divide-y divide-outline-variant/20">
+            <tr id="jobs-empty"><td colspan="6" class="py-8 px-5 text-center text-outline">No tasks yet — create one from Quick Download.</td></tr>
           </tbody>
         </table>
       </div>
@@ -163,15 +117,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
           <div class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</div>
         </div>
-        <div class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
-          <div class="text-outline">[14:32:01] <span class="text-primary">[oauth]</span> Session handshake valid for user @erinzombie</div>
-          <div class="text-outline">[14:32:02] <span class="text-secondary">[civitai]</span> GET https://civitai.com/api/v1/images (HTTP 200)</div>
-          <div class="text-outline">[14:32:03] <span class="text-badge-checkpoint">[download]</span> writing 100% of cyber_valkyrie_mk4_082.png (12.4 MB)</div>
-          <div class="text-outline">[14:32:04] <span class="text-status-active">[verify]</span> SHA256 checksum confirmed: e3b0c44298…</div>
-          <div class="text-outline">[14:32:05] <span class="text-badge-flux">[reddit]</span> Rate limit window: 45 req remaining, throttling 0.4s</div>
-          <div class="text-outline">[14:32:06] <span class="text-status-warning">[filter]</span> Skipped 'avatar_thumb.jpg' (Resolution &lt; 1024px)</div>
-          <div class="text-status-active">[14:32:08] <span class="text-primary">[pipeline]</span> Ingest queue active. 4 workers operating normally.</div>
-          <div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">waiting on new network frames…</span></div>
+        <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
+          <div class="text-outline">connecting…</div>
         </div>
       </div>
       <!-- Telemetry -->
@@ -180,14 +127,14 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
           <span class="font-mono text-[11px] font-bold text-status-warning">NVMe RAID 0</span>
         </div>
-        <div class="flex justify-between font-mono text-[11px]"><span>/mnt/datasets</span><span class="text-outline"><strong class="text-white">412 GB</strong> / 2.0 TB (20.6%)</span></div>
+        <div class="flex justify-between font-mono text-[11px]"><span id="tele-dir">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
         <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
           <div class="bg-badge-checkpoint h-full" style="width:14%"></div>
           <div class="bg-badge-sdxl h-full" style="width:5%"></div>
           <div class="bg-badge-lora h-full" style="width:1.6%"></div>
         </div>
         <div class="flex items-center justify-between font-mono text-[10px] text-outline">
-          <span>Images (280 GB)</span><span>Video (100 GB)</span><span>Meta (32 GB)</span>
+          <span id="tele-images">…</span><span id="tele-tasks">…</span>
         </div>
         <div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px]">
           <span class="text-outline">Estimated free capacity:</span><span class="text-status-active font-semibold">1,588 GB (~380k items)</span>
@@ -204,7 +151,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <span class="font-mono text-[11px] text-outline">(/mnt/storage/raw_datasets/incoming)</span></div>
       <span class="font-mono text-[11px] text-outline">Sort: Ingest Time (Newest)</span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+    <div id="film-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
       <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
         <div class="relative h-44 bg-gradient-to-br from-badge-checkpoint/40 via-surface-container-high to-badge-sdxl/30 flex items-center justify-center">
           <span class="material-symbols-outlined text-4xl text-white/20">image</span>
@@ -241,5 +188,105 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
   </div>
 </div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtMB = (b) => (b / 1048576).toFixed(1) + ' MB';
+  const STATE = {
+    running: ['Downloading', 'border-status-active/40 bg-status-active/10 text-status-active', true],
+    done: ['Finished', 'border-status-active/30 bg-status-active/10 text-status-active', false],
+    idle: ['Queued', 'border-white/15 bg-white/5 text-on-surface-variant', false],
+    stopped: ['Stopped', 'border-outline-variant/40 bg-white/5 text-outline', false],
+    error: ['Error', 'border-status-alert/40 bg-status-alert/10 text-status-alert', false],
+  };
+  async function jget(url) {
+    const r = await fetch(url, { credentials: 'same-origin' });
+    if (!r.ok) throw new Error(url + ' ' + r.status);
+    return r.json();
+  }
+  async function act(slug, action) {
+    const method = action === 'delete' ? 'DELETE' : 'POST';
+    const url = action === 'delete' ? `/gdl/api/tasks/${slug}` : `/gdl/api/tasks/${slug}/${action}`;
+    await fetch(url, { method, credentials: 'same-origin' });
+    void refresh();
+  }
+  window.gdlAct = act;
+  function row(t) {
+    const [label, cls, live] = STATE[t.state] || STATE.idle;
+    const pct = t.progress;
+    const bar = pct != null
+      ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
+      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls} urls</span><span>${esc(t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full ${live ? 'bg-secondary w-2/5 animate-pulse' : 'bg-outline w-0'} rounded-full"></div></div>`;
+    const btns = t.state === 'running'
+      ? `<button class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop" onclick="gdlAct('${t.slug}','stop')"><span class="material-symbols-outlined text-xs">stop</span></button>`
+      : `<button class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Start" onclick="gdlAct('${t.slug}','start')"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`;
+    return `<tr class="hover:bg-slate-surface/40">
+      <td class="py-3 px-5"><div class="font-semibold text-white">${esc(t.name)}</div><div class="text-outline truncate max-w-xs">${esc(t.slug)}</div></td>
+      <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 text-badge-sdxl font-semibold">${esc(t.platform || 'Web')}</span></td>
+      <td class="py-3 px-5">${bar}</td>
+      <td class="py-3 px-5"><div class="text-outline text-[10px]">${t.started_at ? esc(t.started_at.slice(0, 16).replace('T', ' ')) : '—'}</div>${t.last_error ? `<div class="text-status-alert text-[10px] truncate max-w-[12rem]" title="${esc(t.last_error)}">${esc(t.last_error)}</div>` : ''}</td>
+      <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${cls}">${live ? '<span class="h-1.5 w-1.5 rounded-full bg-status-active animate-pulse"></span>' : ''}${label}</span></td>
+      <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">${btns}<button class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Delete" onclick="gdlAct('${t.slug}','delete')"><span class="material-symbols-outlined text-xs">close</span></button></div></td>
+    </tr>`;
+  }
+  async function refresh() {
+    try {
+      const [eng, tj, tele, mj] = await Promise.all([
+        jget('/gdl/api/engines').catch(() => null),
+        jget('/gdl/api/tasks').catch(() => null),
+        jget('/gdl/api/telemetry').catch(() => null),
+        jget('/gdl/api/media/recent').catch(() => null),
+      ]);
+      if (eng) {
+        $('eng-gdl').textContent = eng.gallery_dl + ' active';
+        $('eng-ytdlp').textContent = eng.yt_dlp + ' engine ready';
+      }
+      const tasks = (tj && tj.tasks) || [];
+      const active = tasks.filter((t) => t.state === 'running').length;
+      $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
+      const tb = $('job-rows');
+      tb.innerHTML = tasks.length === 0
+        ? '<tr><td colspan="6" class="py-8 px-5 text-center text-outline">No tasks yet — create one from Quick Download.</td></tr>'
+        : tasks.map(row).join('');
+      // terminal: tail the most recent running task (else newest task)
+      const focus = tasks.find((t) => t.state === 'running') || tasks[0];
+      if (focus) {
+        const lj = await jget(`/gdl/api/tasks/${focus.slug}/log?lines=40`).catch(() => null);
+        if (lj && lj.lines) {
+          $('term-box').innerHTML = lj.lines.slice(-24).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
+            + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(focus.slug) + '</span></div>';
+          $('term-box').scrollTop = $('term-box').scrollHeight;
+        }
+      } else {
+        $('term-box').innerHTML = '<div class="text-outline">pipeline idle — no tasks yet.</div>';
+      }
+      if (tele) {
+        $('tele-dir').textContent = tele.images_dir || '';
+        $('tele-used').textContent = tele.images_gb + ' GB images';
+        $('tele-images').textContent = `Images (${tele.images_gb} GB)`;
+        $('tele-tasks').textContent = `Tasks (${tele.tasks_gb} GB)`;
+      }
+      const grid = $('film-grid');
+      const media = (mj && mj.media) || [];
+      grid.innerHTML = media.length === 0
+        ? '<div class="col-span-full py-8 text-center font-mono text-[11px] text-outline">No scraped media yet.</div>'
+        : media.slice(0, 6).map((m) => `
+          <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
+            <div class="relative h-44 bg-surface-container-high overflow-hidden">
+              <img src="/gdl/api/media/file?path=${encodeURIComponent(m.rel)}" alt="" loading="lazy" class="h-full w-full object-cover" onerror="this.remove()"/>
+              <span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-secondary border border-secondary/30">${esc(m.name.split('.').pop().toUpperCase())}</span>
+            </div>
+            <div class="p-3 flex flex-col gap-1">
+              <span class="text-sm font-medium truncate">${esc(m.name)}</span>
+              <div class="flex justify-between font-mono text-[11px] text-outline"><span>${new Date(m.mtime * 1000).toLocaleString()}</span><span>${fmtMB(m.size)}</span></div>
+            </div>
+          </div>`).join('');
+    } catch (e) { /* backend waking up */ }
+  }
+  void refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
 </body>
 </html>

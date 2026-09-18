@@ -47,63 +47,68 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <p class="mt-1 font-mono text-[11px] text-outline">Fullscreen attend-mode displays cycling freshly scraped media. Bind a kiosk to any ingest folder.</p>
     </div>
     <button class="rounded-lg bg-badge-checkpoint px-5 py-2 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20">
-      <span class="material-symbols-outlined text-sm">add</span> New Kiosk
+      <span class="material-symbols-outlined text-sm">add</span> <span onclick="gdlKioskNew()" style="cursor:pointer">New Kiosk</span>
     </button>
   </section>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <!-- Kiosk card: live -->
-    <div class="rounded-xl border border-status-active/30 bg-surface-container-low overflow-hidden">
-      <div class="relative h-52 bg-gradient-to-br from-badge-checkpoint/50 via-surface-container-high to-badge-sdxl/40 flex items-center justify-center">
-        <span class="material-symbols-outlined text-6xl text-white/25">slideshow</span>
-        <span class="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-[3px] border border-status-active/40 bg-black/70 px-2 py-0.5 font-mono text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active animate-pulse"></span>LIVE</span>
-        <span class="absolute top-3 right-3 rounded-[3px] bg-black/70 px-2 py-0.5 font-mono text-[10px] text-outline border border-white/10">Display :0 · HDMI-1</span>
-        <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2">
-          <div class="h-1 flex-1 rounded-full bg-black/60 overflow-hidden"><div class="h-full w-2/3 bg-secondary rounded-full"></div></div>
-          <span class="font-mono text-[10px] text-white/80">00:07 / 00:10</span>
-        </div>
-      </div>
-      <div class="p-4 flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <h2 class="font-display font-semibold">Lab Wall — Incoming</h2>
-          <span class="font-mono text-[10px] text-outline">/mnt/storage/raw_datasets/incoming</span>
-        </div>
-        <div class="flex items-center gap-4 font-mono text-[11px] text-outline">
-          <span>Interval <strong class="text-white">10s</strong></span>
-          <span>Shuffle <strong class="text-status-active">on</strong></span>
-          <span>NSFW blur <strong class="text-white">on</strong></span>
-        </div>
-        <div class="flex gap-2 pt-1">
-          <button class="flex-1 rounded-lg border border-status-warning/40 bg-status-warning/10 py-1.5 font-mono text-[11px] font-semibold text-status-warning flex items-center justify-center gap-1.5"><span class="material-symbols-outlined text-sm">pause</span>Pause</button>
-          <button class="flex-1 rounded-lg border border-outline-variant/40 py-1.5 font-mono text-[11px] font-semibold flex items-center justify-center gap-1.5 hover:border-badge-checkpoint/60"><span class="material-symbols-outlined text-sm">tune</span>Configure</button>
-          <button class="rounded-lg border border-status-alert/40 px-3 py-1.5 text-status-alert hover:bg-status-alert/10"><span class="material-symbols-outlined text-sm">stop</span></button>
-        </div>
-      </div>
-    </div>
-    <!-- Kiosk card: idle -->
-    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-      <div class="relative h-52 bg-surface-container-lowest flex items-center justify-center">
-        <span class="material-symbols-outlined text-6xl text-white/10">tv</span>
-        <span class="absolute top-3 left-3 rounded-[3px] border border-outline-variant/40 bg-black/70 px-2 py-0.5 font-mono text-[10px] font-bold text-outline">IDLE</span>
-        <span class="absolute top-3 right-3 rounded-[3px] bg-black/70 px-2 py-0.5 font-mono text-[10px] text-outline border border-white/10">Display :0 · DP-2</span>
-      </div>
-      <div class="p-4 flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <h2 class="font-display font-semibold">Review Desk — Curated</h2>
-          <span class="font-mono text-[10px] text-outline">/mnt/storage/raw_datasets/curated</span>
-        </div>
-        <div class="flex items-center gap-4 font-mono text-[11px] text-outline">
-          <span>Interval <strong class="text-white">30s</strong></span>
-          <span>Shuffle <strong class="text-outline">off</strong></span>
-          <span>NSFW blur <strong class="text-white">on</strong></span>
-        </div>
-        <div class="flex gap-2 pt-1">
-          <button class="flex-1 rounded-lg bg-badge-checkpoint py-1.5 font-mono text-[11px] font-semibold text-white flex items-center justify-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">play_arrow</span>Start Display</button>
-          <button class="flex-1 rounded-lg border border-outline-variant/40 py-1.5 font-mono text-[11px] font-semibold flex items-center justify-center gap-1.5 hover:border-badge-checkpoint/60"><span class="material-symbols-outlined text-sm">tune</span>Configure</button>
-        </div>
-      </div>
-    </div>
+  <div id="kiosk-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="col-span-full py-8 text-center font-mono text-[11px] text-outline">loading…</div>
   </div>
+
+  <script>
+  (function () {
+    const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    async function api(url, opts) {
+      const r = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...(opts || {}) });
+      if (!r.ok) throw new Error(url + ' ' + r.status);
+      return r.json();
+    }
+    window.gdlKiosk = async (id, action) => {
+      if (action === 'toggle') await api(`/gdl/api/kiosks/${id}/toggle`, { method: 'POST' });
+      if (action === 'delete' && confirm('Delete kiosk?')) await api(`/gdl/api/kiosks/${id}`, { method: 'DELETE' });
+      void refresh();
+    };
+    window.gdlKioskNew = async () => {
+      const name = prompt('Kiosk name:', 'Lab Wall');
+      if (!name) return;
+      await api('/gdl/api/kiosks', { method: 'POST', body: JSON.stringify({ name }) });
+      void refresh();
+    };
+    function card(k) {
+      const live = !!k.live;
+      return `<div class="rounded-xl border ${live ? 'border-status-active/30' : 'border-outline-variant/30'} bg-surface-container-low overflow-hidden">
+        <div class="relative h-40 bg-surface-container-lowest flex items-center justify-center">
+          <span class="material-symbols-outlined text-5xl ${live ? 'text-white/25' : 'text-white/10'}">slideshow</span>
+          <span class="absolute top-3 left-3 rounded-[3px] border px-2 py-0.5 font-mono text-[10px] font-bold ${live ? 'border-status-active/40 text-status-active' : 'border-outline-variant/40 text-outline'}">${live ? 'LIVE' : 'IDLE'}</span>
+        </div>
+        <div class="p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-display font-semibold">${esc(k.name)}</h2>
+            <span class="font-mono text-[10px] text-outline">${esc(k.folder || '')}</span>
+          </div>
+          <div class="flex items-center gap-4 font-mono text-[11px] text-outline">
+            <span>Interval <strong class="text-white">${k.interval || 10}s</strong></span>
+            <span>Shuffle <strong>${k.shuffle ? 'on' : 'off'}</strong></span>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button onclick="gdlKiosk('${k.id}','toggle')" class="flex-1 rounded-lg ${live ? 'border border-status-warning/40 bg-status-warning/10 text-status-warning' : 'bg-badge-checkpoint text-white ring-1 ring-white/20'} py-1.5 font-mono text-[11px] font-semibold">${live ? 'Pause' : 'Start Display'}</button>
+            <button onclick="gdlKiosk('${k.id}','delete')" class="rounded-lg border border-status-alert/40 px-3 py-1.5 text-status-alert hover:bg-status-alert/10"><span class="material-symbols-outlined text-sm">delete</span></button>
+          </div>
+        </div>
+      </div>`;
+    }
+    async function refresh() {
+      try {
+        const j = await api('/gdl/api/kiosks');
+        document.getElementById('kiosk-grid').innerHTML = (j.kiosks || []).length === 0
+          ? '<div class="col-span-full rounded-xl border border-dashed border-outline-variant/40 py-10 text-center font-mono text-[11px] text-outline">No kiosks yet — create one above.</div>'
+          : j.kiosks.map(card).join('');
+      } catch (e) { /* retry */ }
+    }
+    void refresh();
+    setInterval(refresh, 10000);
+  })();
+  </script>
 
   <!-- Kiosk settings strip -->
   <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5">

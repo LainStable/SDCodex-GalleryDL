@@ -51,7 +51,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
     <div class="flex items-center gap-2 font-mono text-[11px]">
       <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>All levels</option><option>Errors only</option><option>Warnings+</option></select>
-      <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>All jobs</option><option>Civitai ingest</option><option>ArtStation</option><option>Reddit</option></select>
+      <select id="log-task" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"></select>
       <button class="rounded-lg border border-outline-variant/40 px-3 py-1.5 flex items-center gap-1.5 hover:border-badge-sdxl/60"><span class="material-symbols-outlined text-sm">output</span>Export</button>
     </div>
   </section>
@@ -71,23 +71,40 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <button class="p-1 hover:text-white"><span class="material-symbols-outlined text-xs">content_copy</span></button>
       </div>
     </div>
-    <div class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[420px] scroll-thin flex flex-col gap-1">
-      <div class="text-outline">[14:32:01] <span class="text-primary">[oauth]</span> Session handshake valid for user @erinzombie</div>
-      <div class="text-outline">[14:32:02] <span class="text-secondary">[civitai]</span> GET https://civitai.com/api/v1/images (HTTP 200)</div>
-      <div class="text-outline">[14:32:03] <span class="text-badge-checkpoint">[download]</span> writing 100% of cyber_valkyrie_mk4_082.png (12.4 MB)</div>
-      <div class="text-outline">[14:32:04] <span class="text-status-active">[verify]</span> SHA256 checksum confirmed: e3b0c44298…</div>
-      <div class="text-outline">[14:32:05] <span class="text-badge-flux">[reddit]</span> Rate limit window: 45 req remaining, throttling 0.4s</div>
-      <div class="text-outline">[14:32:06] <span class="text-status-warning">[filter]</span> Skipped 'avatar_thumb.jpg' (Resolution &lt; 1024px)</div>
-      <div class="text-outline">[14:32:07] <span class="text-secondary">[yt-dlp]</span> Extracted 4 MP4 video streams from user post</div>
-      <div class="text-outline">[14:31:58] <span class="text-badge-checkpoint">[download]</span> writing 100% of orbital_outpost_sector7_v1.webp (3.2 MB)</div>
-      <div class="text-outline">[14:31:55] <span class="text-status-active">[verify]</span> SHA256 checksum confirmed: 9f1d77ab01…</div>
-      <div class="text-outline">[14:31:52] <span class="text-status-warning">[filter]</span> Skipped 'banner_small.gif' (Resolution &lt; 1024px)</div>
-      <div class="text-outline">[14:31:49] <span class="text-badge-flux">[reddit]</span> Backing off 24s after HTTP 429</div>
-      <div class="text-outline">[14:31:41] <span class="text-status-alert">[error]</span> Twitter/X session expired — re-login required, job paused</div>
-      <div class="text-status-active">[14:32:08] <span class="text-primary">[pipeline]</span> Ingest queue active. 4 workers operating normally.</div>
-      <div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">waiting on new network frames…</span></div>
+    <div id="log-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[420px] scroll-thin flex flex-col gap-1">
+      <div class="text-outline">loading…</div>
     </div>
   </div>
 </div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  async function jget(u) { const r = await fetch(u, { credentials: 'same-origin' }); if (!r.ok) throw new Error(u); return r.json(); }
+  async function loadTasks() {
+    try {
+      const tj = await jget('/gdl/api/tasks');
+      const sel = $('log-task');
+      const cur = sel.value;
+      sel.innerHTML = (tj.tasks || []).map((t) => `<option value="${t.slug}">${esc(t.name)} (${esc(t.state)})</option>`).join('')
+        || '<option value="">no tasks yet</option>';
+      if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
+    } catch (e) { /* retry */ }
+  }
+  async function tail() {
+    const slug = $('log-task').value;
+    if (!slug) { $('log-box').innerHTML = '<div class="text-outline">no tasks yet.</div>'; return; }
+    try {
+      const lj = await jget(`/gdl/api/tasks/${slug}/log?lines=200`);
+      $('log-box').innerHTML = (lj.lines || []).slice(-120).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
+        + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(slug) + '</span></div>';
+      $('log-box').scrollTop = $('log-box').scrollHeight;
+    } catch (e) { /* retry */ }
+  }
+  $('log-task').addEventListener('change', tail);
+  void loadTasks().then(tail);
+  setInterval(async () => { await loadTasks(); await tail(); }, 5000);
+})();
+</script>
 </body>
 </html>

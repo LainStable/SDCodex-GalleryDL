@@ -5,18 +5,47 @@
   "description": "Background gallery-dl and yt-dlp task management, quick downloads, kiosks, OAuth configuration, and a persistent activity log.",
   "author": "LainStable",
   "repository": "https://github.com/LainStable/SDCodex-GalleryDL",
-  "icon": "⤓",
+  "icon": "\u2913",
   "nav_items": [
-    {"label": "Tasks", "icon": "☰", "page": "tasks"},
-    {"label": "Quick Download", "icon": "⤓", "page": "one-time"},
-    {"label": "Kiosks", "icon": "▣", "page": "kiosks"},
-    {"label": "OAuth", "icon": "⚿", "page": "oauth"},
-    {"label": "Logs", "icon": "≡", "page": "logs"}
+    {
+      "label": "Tasks",
+      "icon": "\u2630",
+      "page": "tasks"
+    },
+    {
+      "label": "Quick Download",
+      "icon": "\u2913",
+      "page": "one-time"
+    },
+    {
+      "label": "Kiosks",
+      "icon": "\u25a3",
+      "page": "kiosks"
+    },
+    {
+      "label": "OAuth",
+      "icon": "\u26bf",
+      "page": "oauth"
+    },
+    {
+      "label": "Logs",
+      "icon": "\u2261",
+      "page": "logs"
+    }
   ],
   "settings": [
-    {"label": "GDL Config", "page": "config"},
-    {"label": "GDL Scheduler", "page": "scheduler"},
-    {"label": "GDL Backup", "page": "backup"}
+    {
+      "label": "GDL Config",
+      "page": "config"
+    },
+    {
+      "label": "GDL Scheduler",
+      "page": "scheduler"
+    },
+    {
+      "label": "GDL Backup",
+      "page": "backup"
+    }
   ],
   "volumes": [
     {
@@ -37,5 +66,6 @@
       "container_path": "/data/downloads",
       "description": "Output directory for quick downloads and tools"
     }
-  ]
+  ],
+  "entrypoint": "plugin:init_plugin"
 }

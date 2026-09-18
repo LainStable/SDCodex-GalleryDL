@@ -55,39 +55,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
         <th class="py-2.5 px-5">Platform</th><th class="py-2.5 px-5">Account</th><th class="py-2.5 px-5">Method</th><th class="py-2.5 px-5">Expires</th><th class="py-2.5 px-5">Status</th><th class="py-2.5 px-5 text-right">Actions</th>
       </tr></thead>
-      <tbody class="divide-y divide-outline-variant/20">
-        <tr class="hover:bg-slate-surface/40">
-          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-flux/30 bg-badge-flux/10 px-2 py-0.5 font-semibold text-badge-flux">Reddit</span></td>
-          <td class="py-3 px-5 text-white">@erinzombie</td><td class="py-3 px-5 text-outline">OAuth2 token</td><td class="py-3 px-5">14d</td>
-          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/40 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active"></span>Valid</span></td>
-          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
-            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Refresh</button>
-            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
-        </tr>
-        <tr class="hover:bg-slate-surface/40">
-          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 font-semibold text-badge-sdxl">Civitai</span></td>
-          <td class="py-3 px-5 text-white">API_Key_Workstation_01</td><td class="py-3 px-5 text-outline">API key</td><td class="py-3 px-5 text-outline">—</td>
-          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/40 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active"></span>Valid</span></td>
-          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
-            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Test</button>
-            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
-        </tr>
-        <tr class="hover:bg-slate-surface/40">
-          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-lora/30 bg-badge-lora/10 px-2 py-0.5 font-semibold text-badge-lora">Pixiv</span></td>
-          <td class="py-3 px-5 text-white">PHPSESSID</td><td class="py-3 px-5 text-outline">Cookie jar</td><td class="py-3 px-5 text-outline">session</td>
-          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning"><span class="h-1.5 w-1.5 rounded-full bg-status-warning"></span>Expiring</span></td>
-          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
-            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Re-login</button>
-            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
-        </tr>
-        <tr class="hover:bg-slate-surface/40">
-          <td class="py-3 px-5"><span class="rounded-[3px] border border-white/15 bg-white/5 px-2 py-0.5 font-semibold text-on-surface-variant">Twitter/X</span></td>
-          <td class="py-3 px-5 text-outline">Session_Auth_Token_Key</td><td class="py-3 px-5 text-outline">Cookie jar</td><td class="py-3 px-5 text-outline">session</td>
-          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-alert/40 bg-status-alert/10 px-2 py-0.5 text-[10px] font-bold text-status-alert"><span class="h-1.5 w-1.5 rounded-full bg-status-alert"></span>Invalid</span></td>
-          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
-            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Re-login</button>
-            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
-        </tr>
+      <tbody id="oauth-rows" class="divide-y divide-outline-variant/20">
+        <tr><td colspan="6" class="py-6 px-5 text-center text-outline">loading…</td></tr>
       </tbody>
     </table>
   </div>
@@ -113,5 +82,30 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
   </div>
 </div>
+<script>
+(function () {
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DOT = { valid: 'bg-status-active', expiring: 'bg-status-warning', invalid: 'bg-status-alert', unknown: 'bg-outline' };
+  const TXT = { valid: 'text-status-active', expiring: 'text-status-warning', invalid: 'text-status-alert', unknown: 'text-outline' };
+  async function refresh() {
+    try {
+      const r = await (await fetch('/gdl/api/oauth', { credentials: 'same-origin' })).json();
+      const rows = r.profiles || [];
+      document.getElementById('oauth-rows').innerHTML = rows.length === 0
+        ? '<tr><td colspan="6" class="py-6 px-5 text-center text-outline">No profiles stored — import a cookie jar below.</td></tr>'
+        : rows.map((p) => `<tr class="hover:bg-slate-surface/40">
+            <td class="py-3 px-5"><span class="rounded-[3px] border border-white/15 bg-white/5 px-2 py-0.5 font-semibold">${esc(p.platform)}</span></td>
+            <td class="py-3 px-5 text-white">${esc(p.account)}</td>
+            <td class="py-3 px-5 text-outline">${esc(p.method)}</td>
+            <td class="py-3 px-5 text-outline">—</td>
+            <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-white/10 px-2 py-0.5 text-[10px] font-bold ${TXT[p.status] || TXT.unknown}"><span class="h-1.5 w-1.5 rounded-full ${DOT[p.status] || DOT.unknown}"></span>${esc(p.status)}</span></td>
+            <td class="py-3 px-5"></td>
+          </tr>`).join('');
+    } catch (e) { /* retry */ }
+  }
+  void refresh();
+  setInterval(refresh, 15000);
+})();
+</script>
 </body>
 </html>
