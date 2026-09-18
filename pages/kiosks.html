@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GalleryDL — Kiosks · SDCodex</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = { darkMode: "class", theme: { extend: { colors: {
+  background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
+  "surface-container-low": "#181b25", "surface-container": "#1c1f29",
+  "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
+  "slate-surface": "#1E293B",
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
+  primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
+  "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen font-body">
+<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <span class="flex items-center gap-2 text-white font-semibold mr-2">
+      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
+      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
+    </span>
+    <a href="tasks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Tasks</a>
+    <a href="one-time.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Quick Download</a>
+    <a href="kiosks.html" class="rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1.5 text-white">Kiosks</a>
+    <a href="oauth.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">OAuth</a>
+    <a href="logs.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Logs</a>
+  </nav>
+
+  <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-sdxl/60 to-transparent"></div>
+    <div>
+      <h1 class="font-display text-2xl font-bold tracking-tight flex items-center gap-2"><span class="material-symbols-outlined text-secondary">slideshow</span>Kiosk Slideshow Mode</h1>
+      <p class="mt-1 font-mono text-[11px] text-outline">Fullscreen attend-mode displays cycling freshly scraped media. Bind a kiosk to any ingest folder.</p>
+    </div>
+    <button class="rounded-lg bg-badge-checkpoint px-5 py-2 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20">
+      <span class="material-symbols-outlined text-sm">add</span> New Kiosk
+    </button>
+  </section>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Kiosk card: live -->
+    <div class="rounded-xl border border-status-active/30 bg-surface-container-low overflow-hidden">
+      <div class="relative h-52 bg-gradient-to-br from-badge-checkpoint/50 via-surface-container-high to-badge-sdxl/40 flex items-center justify-center">
+        <span class="material-symbols-outlined text-6xl text-white/25">slideshow</span>
+        <span class="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-[3px] border border-status-active/40 bg-black/70 px-2 py-0.5 font-mono text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active animate-pulse"></span>LIVE</span>
+        <span class="absolute top-3 right-3 rounded-[3px] bg-black/70 px-2 py-0.5 font-mono text-[10px] text-outline border border-white/10">Display :0 · HDMI-1</span>
+        <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2">
+          <div class="h-1 flex-1 rounded-full bg-black/60 overflow-hidden"><div class="h-full w-2/3 bg-secondary rounded-full"></div></div>
+          <span class="font-mono text-[10px] text-white/80">00:07 / 00:10</span>
+        </div>
+      </div>
+      <div class="p-4 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-semibold">Lab Wall — Incoming</h2>
+          <span class="font-mono text-[10px] text-outline">/mnt/storage/raw_datasets/incoming</span>
+        </div>
+        <div class="flex items-center gap-4 font-mono text-[11px] text-outline">
+          <span>Interval <strong class="text-white">10s</strong></span>
+          <span>Shuffle <strong class="text-status-active">on</strong></span>
+          <span>NSFW blur <strong class="text-white">on</strong></span>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button class="flex-1 rounded-lg border border-status-warning/40 bg-status-warning/10 py-1.5 font-mono text-[11px] font-semibold text-status-warning flex items-center justify-center gap-1.5"><span class="material-symbols-outlined text-sm">pause</span>Pause</button>
+          <button class="flex-1 rounded-lg border border-outline-variant/40 py-1.5 font-mono text-[11px] font-semibold flex items-center justify-center gap-1.5 hover:border-badge-checkpoint/60"><span class="material-symbols-outlined text-sm">tune</span>Configure</button>
+          <button class="rounded-lg border border-status-alert/40 px-3 py-1.5 text-status-alert hover:bg-status-alert/10"><span class="material-symbols-outlined text-sm">stop</span></button>
+        </div>
+      </div>
+    </div>
+    <!-- Kiosk card: idle -->
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+      <div class="relative h-52 bg-surface-container-lowest flex items-center justify-center">
+        <span class="material-symbols-outlined text-6xl text-white/10">tv</span>
+        <span class="absolute top-3 left-3 rounded-[3px] border border-outline-variant/40 bg-black/70 px-2 py-0.5 font-mono text-[10px] font-bold text-outline">IDLE</span>
+        <span class="absolute top-3 right-3 rounded-[3px] bg-black/70 px-2 py-0.5 font-mono text-[10px] text-outline border border-white/10">Display :0 · DP-2</span>
+      </div>
+      <div class="p-4 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-semibold">Review Desk — Curated</h2>
+          <span class="font-mono text-[10px] text-outline">/mnt/storage/raw_datasets/curated</span>
+        </div>
+        <div class="flex items-center gap-4 font-mono text-[11px] text-outline">
+          <span>Interval <strong class="text-white">30s</strong></span>
+          <span>Shuffle <strong class="text-outline">off</strong></span>
+          <span>NSFW blur <strong class="text-white">on</strong></span>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button class="flex-1 rounded-lg bg-badge-checkpoint py-1.5 font-mono text-[11px] font-semibold text-white flex items-center justify-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">play_arrow</span>Start Display</button>
+          <button class="flex-1 rounded-lg border border-outline-variant/40 py-1.5 font-mono text-[11px] font-semibold flex items-center justify-center gap-1.5 hover:border-badge-checkpoint/60"><span class="material-symbols-outlined text-sm">tune</span>Configure</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kiosk settings strip -->
+  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5">
+    <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-badge-checkpoint">tune</span><h2 class="font-display font-semibold">Display Defaults</h2></div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px]">
+      <label class="flex flex-col gap-1"><span class="uppercase text-outline text-[10px]">Slide interval</span>
+        <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>10s</option><option selected="">30s</option><option>60s</option></select></label>
+      <label class="flex flex-col gap-1"><span class="uppercase text-outline text-[10px]">Transition</span>
+        <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option selected="">Crossfade</option><option>Cut</option><option>Slide</option></select></label>
+      <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer"><input checked="" type="checkbox" class="accent-[#6366f1]"/>Shuffle order</label>
+      <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer"><input checked="" type="checkbox" class="accent-[#6366f1]"/>Blur NSFW</label>
+    </div>
+  </div>
+</div>
+</body>
+</html>

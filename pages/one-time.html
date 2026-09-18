@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GalleryDL — Quick Download · SDCodex</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = { darkMode: "class", theme: { extend: { colors: {
+  background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
+  "surface-container-low": "#181b25", "surface-container": "#1c1f29",
+  "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
+  "slate-surface": "#1E293B",
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
+  primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
+  "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen font-body">
+<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <span class="flex items-center gap-2 text-white font-semibold mr-2">
+      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
+      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
+    </span>
+    <a href="tasks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Tasks</a>
+    <a href="one-time.html" class="rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1.5 text-white">Quick Download</a>
+    <a href="kiosks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Kiosks</a>
+    <a href="oauth.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">OAuth</a>
+    <a href="logs.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Logs</a>
+  </nav>
+
+  <div class="grid grid-cols-12 gap-6 items-start">
+    <!-- Quick scrape console -->
+    <div class="col-span-12 lg:col-span-5 rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">input</span>
+          <h1 class="font-display font-semibold">Quick Scrape Console</h1></div>
+        <span class="rounded-[3px] bg-surface-container px-2 py-0.5 font-mono text-[10px] text-outline">CLI Args Sync</span>
+      </div>
+      <form class="flex flex-col gap-3" onsubmit="event.preventDefault()">
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Target URL / Profile Feed</label>
+          <div class="relative">
+            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" type="text" value="https://twitter.com/ai_artist_zero/media"/>
+            <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">link</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">OAuth / Cookie Profile</label>
+          <select class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint">
+            <option selected="">Reddit: @erinzombie (Active Token · exp 14d)</option>
+            <option>Twitter/X: Session_Auth_Token_Key</option>
+            <option>Civitai: API_Key_Workstation_01</option>
+            <option>Pixiv: PHPSESSID Stored</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Target Local Destination</label>
+          <select class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint">
+            <option selected="">/mnt/storage/raw_datasets/character_train/</option>
+            <option>/mnt/storage/raw_datasets/scenery_inpaint/</option>
+            <option>/mnt/storage/lora_training/flux_dev_captions/</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between items-center">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Naming Syntax Template</label>
+            <span class="font-mono text-[10px] text-secondary">gallery-dl standard</span>
+          </div>
+          <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-1.5 font-mono text-xs text-secondary focus:outline-none focus:border-badge-checkpoint" type="text" value="{category}/{artist}_{id}_{title[:30]}"/>
+        </div>
+        <div class="flex flex-col gap-2 pt-1">
+          <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Extraction Filters</span>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
+              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Min 1024px</span></label>
+            <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
+              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Images Only</span></label>
+            <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
+              <input class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Include Video</span></label>
+            <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
+              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Save Metadata</span></label>
+          </div>
+        </div>
+        <button class="mt-2 w-full rounded-lg bg-badge-checkpoint py-2.5 font-mono text-xs font-semibold text-white flex items-center justify-center gap-2 ring-1 ring-white/20">
+          <span class="material-symbols-outlined text-sm">rocket_launch</span> Enqueue &amp; Launch Scraper
+        </button>
+      </form>
+    </div>
+
+    <!-- Resolved CLI preview + one-shot history -->
+    <div class="col-span-12 lg:col-span-7 flex flex-col gap-6">
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+        <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+          <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-secondary">terminal</span><span class="font-semibold">Resolved gallery-dl invocation</span></div>
+          <button class="font-mono text-[10px] text-outline hover:text-white flex items-center gap-1"><span class="material-symbols-outlined text-xs">content_copy</span>Copy</button>
+        </div>
+        <pre class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed text-secondary overflow-x-auto">gallery-dl --cookies ~/.config/gallery-dl/cookies-reddit.txt \
+  --filter "image_width &gt;= 1024" --no-skip \
+  --write-metadata --filename "{category}/{artist}_{id}_{title[:30]}" \
+  --destination /mnt/storage/raw_datasets/character_train/ \
+  "https://twitter.com/ai_artist_zero/media"</pre>
+      </div>
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+        <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center gap-2">
+          <span class="material-symbols-outlined text-badge-checkpoint">history</span>
+          <h2 class="font-display font-semibold">One-shot History</h2>
+        </div>
+        <table class="w-full text-left font-mono text-xs">
+          <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
+            <th class="py-2 px-5">Target</th><th class="py-2 px-5">Items</th><th class="py-2 px-5">Size</th><th class="py-2 px-5">Status</th>
+          </tr></thead>
+          <tbody class="divide-y divide-outline-variant/20">
+            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">instagram.com/p/C8xK2… (carousel)</td><td class="py-2.5 px-5">12 / 12</td><td class="py-2.5 px-5">84 MB</td>
+              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-active/30 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active">Finished</span></td></tr>
+            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">danbooru.donmai.us/posts?tags=mecha</td><td class="py-2.5 px-5">200 / 200</td><td class="py-2.5 px-5">1.1 GB</td>
+              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-active/30 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active">Finished</span></td></tr>
+            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">x.com/synth_archives/media</td><td class="py-2.5 px-5">31 / 96</td><td class="py-2.5 px-5">—</td>
+              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning">Backoff 429</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

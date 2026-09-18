@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GalleryDL — Logs · SDCodex</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = { darkMode: "class", theme: { extend: { colors: {
+  background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
+  "surface-container-low": "#181b25", "surface-container": "#1c1f29",
+  "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
+  "slate-surface": "#1E293B",
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
+  primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
+  "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
+.scroll-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+.scroll-thin::-webkit-scrollbar-track { background: #0a0e17; }
+.scroll-thin::-webkit-scrollbar-thumb { background: #31353f; border-radius: 4px; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen font-body">
+<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <span class="flex items-center gap-2 text-white font-semibold mr-2">
+      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
+      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
+    </span>
+    <a href="tasks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Tasks</a>
+    <a href="one-time.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Quick Download</a>
+    <a href="kiosks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Kiosks</a>
+    <a href="oauth.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">OAuth</a>
+    <a href="logs.html" class="rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1.5 text-white">Logs</a>
+  </nav>
+
+  <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
+    <div>
+      <h1 class="font-display text-2xl font-bold tracking-tight flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">list_alt</span>Persistent Activity Log</h1>
+      <p class="mt-1 font-mono text-[11px] text-outline">Every scrape, verify, skip and rate-limit event — retained per task in <span class="text-secondary">/data/tasks</span>.</p>
+    </div>
+    <div class="flex items-center gap-2 font-mono text-[11px]">
+      <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>All levels</option><option>Errors only</option><option>Warnings+</option></select>
+      <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>All jobs</option><option>Civitai ingest</option><option>ArtStation</option><option>Reddit</option></select>
+      <button class="rounded-lg border border-outline-variant/40 px-3 py-1.5 flex items-center gap-1.5 hover:border-badge-sdxl/60"><span class="material-symbols-outlined text-sm">output</span>Export</button>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Items today</div><div class="font-display text-2xl font-bold">1,204</div></div>
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Bytes ingested</div><div class="font-display text-2xl font-bold">3.6 GB</div></div>
+    <div class="rounded-xl border border-status-warning/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-warning">Skipped / filtered</div><div class="font-display text-2xl font-bold">47</div></div>
+    <div class="rounded-xl border border-status-alert/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-alert">Errors</div><div class="font-display text-2xl font-bold">3</div></div>
+  </div>
+
+  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+      <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
+      <div class="flex items-center gap-2 font-mono text-[10px] text-outline">
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</span>
+        <button class="p-1 hover:text-white"><span class="material-symbols-outlined text-xs">content_copy</span></button>
+      </div>
+    </div>
+    <div class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[420px] scroll-thin flex flex-col gap-1">
+      <div class="text-outline">[14:32:01] <span class="text-primary">[oauth]</span> Session handshake valid for user @erinzombie</div>
+      <div class="text-outline">[14:32:02] <span class="text-secondary">[civitai]</span> GET https://civitai.com/api/v1/images (HTTP 200)</div>
+      <div class="text-outline">[14:32:03] <span class="text-badge-checkpoint">[download]</span> writing 100% of cyber_valkyrie_mk4_082.png (12.4 MB)</div>
+      <div class="text-outline">[14:32:04] <span class="text-status-active">[verify]</span> SHA256 checksum confirmed: e3b0c44298…</div>
+      <div class="text-outline">[14:32:05] <span class="text-badge-flux">[reddit]</span> Rate limit window: 45 req remaining, throttling 0.4s</div>
+      <div class="text-outline">[14:32:06] <span class="text-status-warning">[filter]</span> Skipped 'avatar_thumb.jpg' (Resolution &lt; 1024px)</div>
+      <div class="text-outline">[14:32:07] <span class="text-secondary">[yt-dlp]</span> Extracted 4 MP4 video streams from user post</div>
+      <div class="text-outline">[14:31:58] <span class="text-badge-checkpoint">[download]</span> writing 100% of orbital_outpost_sector7_v1.webp (3.2 MB)</div>
+      <div class="text-outline">[14:31:55] <span class="text-status-active">[verify]</span> SHA256 checksum confirmed: 9f1d77ab01…</div>
+      <div class="text-outline">[14:31:52] <span class="text-status-warning">[filter]</span> Skipped 'banner_small.gif' (Resolution &lt; 1024px)</div>
+      <div class="text-outline">[14:31:49] <span class="text-badge-flux">[reddit]</span> Backing off 24s after HTTP 429</div>
+      <div class="text-outline">[14:31:41] <span class="text-status-alert">[error]</span> Twitter/X session expired — re-login required, job paused</div>
+      <div class="text-status-active">[14:32:08] <span class="text-primary">[pipeline]</span> Ingest queue active. 4 workers operating normally.</div>
+      <div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">waiting on new network frames…</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

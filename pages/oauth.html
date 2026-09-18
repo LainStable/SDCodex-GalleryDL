@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GalleryDL — OAuth · SDCodex</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = { darkMode: "class", theme: { extend: { colors: {
+  background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
+  "surface-container-low": "#181b25", "surface-container": "#1c1f29",
+  "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
+  "slate-surface": "#1E293B",
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
+  primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
+  "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen font-body">
+<div class="mx-auto max-w-[1200px] p-6 flex flex-col gap-6">
+
+  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
+    <span class="flex items-center gap-2 text-white font-semibold mr-2">
+      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
+      SDCodex-GalleryDL <span class="rounded-[3px] border border-badge-checkpoint/40 bg-badge-checkpoint/15 px-1.5 py-0.5 text-primary">v2.1.0</span>
+    </span>
+    <a href="tasks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Tasks</a>
+    <a href="one-time.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Quick Download</a>
+    <a href="kiosks.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Kiosks</a>
+    <a href="oauth.html" class="rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1.5 text-white">OAuth</a>
+    <a href="logs.html" class="rounded-[3px] border border-white/10 px-2.5 py-1.5 text-on-surface-variant hover:text-white hover:border-badge-checkpoint/50">Logs</a>
+  </nav>
+
+  <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
+    <h1 class="font-display text-2xl font-bold tracking-tight flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">key</span>OAuth Credentials Manager</h1>
+    <p class="mt-1 font-mono text-[11px] text-outline">Tokens and cookie profiles gallery-dl uses for authenticated sources. Secrets stay in <span class="text-secondary">/data/config</span> — never rendered here.</p>
+  </section>
+
+  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
+      <h2 class="font-display font-semibold">Stored Profiles</h2>
+      <button class="rounded-lg bg-badge-checkpoint px-3 py-1.5 font-mono text-[11px] font-semibold text-white flex items-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">add</span>Add Profile</button>
+    </div>
+    <table class="w-full text-left font-mono text-xs">
+      <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
+        <th class="py-2.5 px-5">Platform</th><th class="py-2.5 px-5">Account</th><th class="py-2.5 px-5">Method</th><th class="py-2.5 px-5">Expires</th><th class="py-2.5 px-5">Status</th><th class="py-2.5 px-5 text-right">Actions</th>
+      </tr></thead>
+      <tbody class="divide-y divide-outline-variant/20">
+        <tr class="hover:bg-slate-surface/40">
+          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-flux/30 bg-badge-flux/10 px-2 py-0.5 font-semibold text-badge-flux">Reddit</span></td>
+          <td class="py-3 px-5 text-white">@erinzombie</td><td class="py-3 px-5 text-outline">OAuth2 token</td><td class="py-3 px-5">14d</td>
+          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/40 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active"></span>Valid</span></td>
+          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
+            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Refresh</button>
+            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
+        </tr>
+        <tr class="hover:bg-slate-surface/40">
+          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 font-semibold text-badge-sdxl">Civitai</span></td>
+          <td class="py-3 px-5 text-white">API_Key_Workstation_01</td><td class="py-3 px-5 text-outline">API key</td><td class="py-3 px-5 text-outline">—</td>
+          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-active/40 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active"><span class="h-1.5 w-1.5 rounded-full bg-status-active"></span>Valid</span></td>
+          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
+            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Test</button>
+            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
+        </tr>
+        <tr class="hover:bg-slate-surface/40">
+          <td class="py-3 px-5"><span class="rounded-[3px] border border-badge-lora/30 bg-badge-lora/10 px-2 py-0.5 font-semibold text-badge-lora">Pixiv</span></td>
+          <td class="py-3 px-5 text-white">PHPSESSID</td><td class="py-3 px-5 text-outline">Cookie jar</td><td class="py-3 px-5 text-outline">session</td>
+          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning"><span class="h-1.5 w-1.5 rounded-full bg-status-warning"></span>Expiring</span></td>
+          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
+            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Re-login</button>
+            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
+        </tr>
+        <tr class="hover:bg-slate-surface/40">
+          <td class="py-3 px-5"><span class="rounded-[3px] border border-white/15 bg-white/5 px-2 py-0.5 font-semibold text-on-surface-variant">Twitter/X</span></td>
+          <td class="py-3 px-5 text-outline">Session_Auth_Token_Key</td><td class="py-3 px-5 text-outline">Cookie jar</td><td class="py-3 px-5 text-outline">session</td>
+          <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-status-alert/40 bg-status-alert/10 px-2 py-0.5 text-[10px] font-bold text-status-alert"><span class="h-1.5 w-1.5 rounded-full bg-status-alert"></span>Invalid</span></td>
+          <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1">
+            <button class="rounded-[3px] border border-outline-variant/40 px-2 py-1 text-[10px] hover:border-badge-sdxl/60">Re-login</button>
+            <button class="rounded-[3px] border border-status-alert/40 px-2 py-1 text-[10px] text-status-alert hover:bg-status-alert/10">Revoke</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">cookie</span><h2 class="font-display font-semibold">Import Cookie Jar</h2></div>
+      <p class="font-mono text-[11px] text-outline">Paste a Netscape-format cookies.txt export — stored to <span class="text-secondary">/data/config/cookies-&lt;platform&gt;.txt</span>.</p>
+      <textarea rows="4" placeholder="# Netscape HTTP Cookie File&#10;.pixiv.net	TRUE	/	FALSE	…	PHPSESSID	…" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3 font-mono text-[11px] focus:outline-none focus:border-badge-checkpoint"></textarea>
+      <div class="flex gap-2">
+        <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-[11px]"><option>Pixiv</option><option>Twitter/X</option><option>Reddit</option><option>DeviantArt</option></select>
+        <button class="flex-1 rounded-lg bg-badge-checkpoint py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save Cookie Jar</button>
+      </div>
+    </div>
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">vpn_key</span><h2 class="font-display font-semibold">OAuth Handshake Log</h2></div>
+      <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed flex flex-col gap-1">
+        <div class="text-outline">[14:32:01] <span class="text-primary">[oauth]</span> Session handshake valid for user @erinzombie</div>
+        <div class="text-outline">[13:58:44] <span class="text-status-warning">[oauth]</span> Pixiv cookie jar older than 20d — refresh advised</div>
+        <div class="text-outline">[13:12:09] <span class="text-status-alert">[oauth]</span> Twitter/X token rejected (401) — re-login required</div>
+        <div class="text-outline">[09:41:33] <span class="text-status-active">[oauth]</span> Civitai API key test passed (HTTP 200)</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
