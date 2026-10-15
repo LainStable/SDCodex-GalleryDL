@@ -116,6 +116,15 @@ def _is_running(pid) -> bool:
         return False
 
 
+def _read_file_strip(path: str) -> str:
+    """Read a plain-text file and return its stripped content, or ''."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
 def _task_info(slug: str) -> dict:
     base = os.path.join(tasks_dir(), slug)
     urls_path = os.path.join(base, "urls.txt")
@@ -145,7 +154,7 @@ def _task_info(slug: str) -> dict:
                 pass
     return {
         "slug": slug,
-        "name": st.get("name", slug),
+        "name": st.get("name") or _read_file_strip(os.path.join(base, "name.txt")) or slug,
         "urls": len(urls),
         "state": state,
         "progress": pct,
@@ -360,6 +369,12 @@ def quick_start():
     job_id = uuid.uuid4().hex[:12]
     log_path = os.path.join(tasks_dir(), f".quick-{job_id}.log")
     cmd = ["gallery-dl", "--write-metadata", "-d", dest]
+    conf = (data.get("config") or "").strip()
+    if conf:
+        cmd += ["--config", conf]
+    archive = (data.get("archive") or "").strip()
+    if archive:
+        cmd += ["--download-archive", archive]
     if data.get("images_only", True):
         cmd += ["--filter", "extension in ('jpg', 'jpeg', 'png', 'webp', 'gif')"]
     if data.get("min_width"):
@@ -367,7 +382,13 @@ def quick_start():
             cmd += ["--filter", f"image_width >= {int(data['min_width'])}"]
         except (TypeError, ValueError):
             pass
-    if data.get("cookies"):
+    # cookie_file: path to an existing cookies-*.txt in config dir
+    cookie_file = (data.get("cookie_file") or "").strip()
+    if cookie_file:
+        safe = os.path.abspath(os.path.join(config_dir(), os.path.basename(cookie_file)))
+        if os.path.isfile(safe):
+            cmd += ["--cookies", safe]
+    elif data.get("cookies"):
         cp = os.path.join(config_dir(), f"cookies-quick-{job_id}.txt")
         with open(cp, "w", encoding="utf-8") as f:
             f.write(data["cookies"])

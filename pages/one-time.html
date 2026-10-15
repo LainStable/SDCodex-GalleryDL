@@ -52,6 +52,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <span class="rounded-[3px] bg-surface-container px-2 py-0.5 font-mono text-[10px] text-outline">CLI Args Sync</span>
       </div>
       <form id="quick-form" class="flex flex-col gap-3" onsubmit="event.preventDefault()">
+
+        <!-- URL -->
         <div class="flex flex-col gap-1">
           <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Target URL / Profile Feed</label>
           <div class="relative">
@@ -59,49 +61,63 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">link</span>
           </div>
         </div>
+
+        <!-- Destination path -->
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Download Destination (--destination)</label>
+          <div class="relative">
+            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" id="q-dest" type="text" placeholder="/data/downloads"/>
+            <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">folder</span>
+          </div>
+        </div>
+
+        <!-- Config path -->
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Config File (--config)</label>
+          <div class="relative">
+            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" id="q-config" type="text" placeholder="/data/config/gallery-dl.conf"/>
+            <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">settings</span>
+          </div>
+        </div>
+
+        <!-- Download archive -->
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Download Archive (--download-archive)</label>
+          <div class="relative">
+            <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint" id="q-archive" type="text" placeholder="archive.sqlite"/>
+            <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-sm">archive</span>
+          </div>
+        </div>
+
+        <!-- OAuth / Cookie Profile -->
         <div class="flex flex-col gap-1">
           <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">OAuth / Cookie Profile</label>
-          <select class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint">
-            <option selected="">Reddit: @erinzombie (Active Token · exp 14d)</option>
-            <option>Twitter/X: Session_Auth_Token_Key</option>
-            <option>Civitai: API_Key_Workstation_01</option>
-            <option>Pixiv: PHPSESSID Stored</option>
+          <select id="q-cookie" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint">
+            <option value="">— No credentials —</option>
           </select>
         </div>
-        <div class="flex flex-col gap-1">
-          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Target Local Destination</label>
-          <select class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint">
-            <option selected="">/mnt/storage/raw_datasets/character_train/</option>
-            <option>/mnt/storage/raw_datasets/scenery_inpaint/</option>
-            <option>/mnt/storage/lora_training/flux_dev_captions/</option>
-          </select>
-        </div>
-        <div class="flex flex-col gap-1">
-          <div class="flex justify-between items-center">
-            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Naming Syntax Template</label>
-            <span class="font-mono text-[10px] text-secondary">gallery-dl standard</span>
-          </div>
-          <input class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-1.5 font-mono text-xs text-secondary focus:outline-none focus:border-badge-checkpoint" type="text" value="{category}/{artist}_{id}_{title[:30]}"/>
-        </div>
+
+        <!-- Filters -->
         <div class="flex flex-col gap-2 pt-1">
           <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">Extraction Filters</span>
           <div class="grid grid-cols-2 gap-2">
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
-              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Min 1024px</span></label>
+              <input id="q-minwidth" checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Min 1024px</span></label>
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
-              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Images Only</span></label>
+              <input id="q-images-only" checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Images Only</span></label>
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
               <input class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Include Video</span></label>
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
-              <input checked="" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Save Metadata</span></label>
+              <input checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Save Metadata</span></label>
           </div>
         </div>
-        <button class="mt-2 w-full rounded-lg bg-badge-checkpoint py-2.5 font-mono text-xs font-semibold text-white flex items-center justify-center gap-2 ring-1 ring-white/20">
+
+        <button id="q-btn" type="submit" class="mt-2 w-full rounded-lg bg-badge-checkpoint py-2.5 font-mono text-xs font-semibold text-white flex items-center justify-center gap-2 ring-1 ring-white/20">
           <span class="material-symbols-outlined text-sm">rocket_launch</span> Enqueue &amp; Launch Scraper
         </button>
-            <div id="quick-status" class="font-mono text-[11px] text-outline"></div>
-      <div id="quick-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-56 overflow-y-auto flex flex-col gap-1"></div>
-    </form>
+        <div id="quick-status" class="font-mono text-[11px] text-outline"></div>
+        <div id="quick-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-56 overflow-y-auto flex flex-col gap-1"></div>
+      </form>
     </div>
 
     <!-- Resolved CLI preview + one-shot history -->
@@ -109,13 +125,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
         <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
           <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-secondary">terminal</span><span class="font-semibold">Resolved gallery-dl invocation</span></div>
-          <button class="font-mono text-[10px] text-outline hover:text-white flex items-center gap-1"><span class="material-symbols-outlined text-xs">content_copy</span>Copy</button>
+          <button id="copy-btn" class="font-mono text-[10px] text-outline hover:text-white flex items-center gap-1"><span class="material-symbols-outlined text-xs">content_copy</span>Copy</button>
         </div>
-        <pre class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed text-secondary overflow-x-auto">gallery-dl --cookies ~/.config/gallery-dl/cookies-reddit.txt \
-  --filter "image_width &gt;= 1024" --no-skip \
-  --write-metadata --filename "{category}/{artist}_{id}_{title[:30]}" \
-  --destination /mnt/storage/raw_datasets/character_train/ \
-  "https://twitter.com/ai_artist_zero/media"</pre>
+        <pre id="cli-preview" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed text-secondary overflow-x-auto">gallery-dl --write-metadata …</pre>
       </div>
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
         <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center gap-2">
@@ -124,15 +136,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         </div>
         <table class="w-full text-left font-mono text-xs">
           <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
-            <th class="py-2 px-5">Target</th><th class="py-2 px-5">Items</th><th class="py-2 px-5">Size</th><th class="py-2 px-5">Status</th>
+            <th class="py-2 px-5">Target</th><th class="py-2 px-5">Status</th><th class="py-2 px-5">Started</th><th class="py-2 px-5">Action</th>
           </tr></thead>
-          <tbody class="divide-y divide-outline-variant/20">
-            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">instagram.com/p/C8xK2… (carousel)</td><td class="py-2.5 px-5">12 / 12</td><td class="py-2.5 px-5">84 MB</td>
-              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-active/30 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active">Finished</span></td></tr>
-            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">danbooru.donmai.us/posts?tags=mecha</td><td class="py-2.5 px-5">200 / 200</td><td class="py-2.5 px-5">1.1 GB</td>
-              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-active/30 bg-status-active/10 px-2 py-0.5 text-[10px] font-bold text-status-active">Finished</span></td></tr>
-            <tr class="hover:bg-slate-surface/40"><td class="py-2.5 px-5 truncate max-w-xs">x.com/synth_archives/media</td><td class="py-2.5 px-5">31 / 96</td><td class="py-2.5 px-5">—</td>
-              <td class="py-2.5 px-5"><span class="rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning">Backoff 429</span></td></tr>
+          <tbody id="history-body" class="divide-y divide-outline-variant/20">
+            <tr><td colspan="4" class="py-4 px-5 text-outline text-center text-[11px]">No recent one-shot jobs this session.</td></tr>
           </tbody>
         </table>
       </div>
@@ -143,35 +150,141 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let job = null, timer = null;
+
+  // -- Load OAuth profiles --
+  async function loadProfiles() {
+    try {
+      const r = await fetch('/gdl/api/oauth', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const data = await r.json();
+      const sel = $('q-cookie');
+      (data.profiles || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.account;
+        opt.textContent = `${p.platform}: ${p.account} (${p.method})`;
+        sel.appendChild(opt);
+      });
+    } catch (_) {}
+  }
+  loadProfiles();
+
+  // -- CLI preview updater --
+  function buildPreview() {
+    const parts = ['gallery-dl', '--write-metadata'];
+    const dest = $('q-dest').value.trim();
+    if (dest) parts.push('-d', dest);
+    const conf = $('q-config').value.trim();
+    if (conf) parts.push('--config', conf);
+    const arc = $('q-archive').value.trim();
+    if (arc) parts.push('--download-archive', arc);
+    const cookie = $('q-cookie').value;
+    if (cookie) parts.push('--cookies', cookie);
+    if ($('q-images-only').checked)
+      parts.push('--filter', "extension in ('jpg','jpeg','png','webp','gif')");
+    if ($('q-minwidth').checked)
+      parts.push('--filter', 'image_width >= 1024');
+    const url = $('q-url').value.trim();
+    if (url) parts.push(url);
+    $('cli-preview').textContent = parts.join(' \\\n  ');
+  }
+  ['q-url','q-dest','q-config','q-archive','q-cookie','q-images-only','q-minwidth'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', buildPreview);
+    if (el) el.addEventListener('change', buildPreview);
+  });
+  buildPreview();
+
+  $('copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText($('cli-preview').textContent).catch(() => {});
+  });
+
+  // -- History tracking (session-only) --
+  const history = [];
+  function renderHistory() {
+    const tbody = $('history-body');
+    if (!history.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="py-4 px-5 text-outline text-center text-[11px]">No recent one-shot jobs this session.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = history.map(h => `
+      <tr class="hover:bg-slate-surface/40">
+        <td class="py-2.5 px-5 truncate max-w-xs font-mono text-xs">${esc(h.url)}</td>
+        <td class="py-2.5 px-5" id="state-${esc(h.job)}">
+          <span class="rounded-[3px] border border-status-warning/40 bg-status-warning/15 px-2 py-0.5 text-[10px] font-bold text-status-warning">Running</span>
+        </td>
+        <td class="py-2.5 px-5 font-mono text-[10px] text-outline">${esc(h.started)}</td>
+        <td class="py-2.5 px-5"><button class="font-mono text-[10px] text-status-alert hover:underline" onclick="stopJob('${esc(h.job)}')">Stop</button></td>
+      </tr>`).join('');
+  }
+
+  window.stopJob = async function(job) {
+    try {
+      await fetch('/gdl/api/quick/' + job + '/stop', { method: 'POST', credentials: 'same-origin' });
+    } catch (_) {}
+  };
+
+  // -- Submit --
+  let activeJob = null, timer = null;
   async function post(url, body) {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}), credentials: 'same-origin' });
     if (!r.ok) throw new Error(url + ' ' + r.status);
     return r.json();
   }
+
   $('quick-form').addEventListener('submit', async () => {
     const url = $('q-url').value.trim();
-    if (!url) return;
-    const btn = $('quick-form').querySelector('button[type="submit"], button:last-child');
+    if (!url) { $('quick-status').innerHTML = '<span class="text-status-alert">URL is required.</span>'; return; }
+    const btn = $('q-btn');
+    btn.disabled = true;
+    btn.classList.add('opacity-60');
     try {
-      const r = await post('/gdl/api/quick', { url, images_only: true, min_width: 1024 });
-      job = r.job;
-      $('quick-status').innerHTML = '<span class="text-secondary">launched ' + esc(job) + ' — streaming…</span>';
+      const payload = {
+        url,
+        dest: $('q-dest').value.trim() || undefined,
+        config: $('q-config').value.trim() || undefined,
+        archive: $('q-archive').value.trim() || undefined,
+        cookie_file: $('q-cookie').value || undefined,
+        images_only: $('q-images-only').checked,
+        min_width: $('q-minwidth').checked ? 1024 : undefined,
+      };
+      const r = await post('/gdl/api/quick', payload);
+      activeJob = r.job;
+      history.unshift({ job: r.job, url, started: new Date().toLocaleTimeString() });
+      renderHistory();
+      $('quick-status').innerHTML = '<span class="text-secondary">launched ' + esc(activeJob) + ' — streaming…</span>';
       clearInterval(timer);
       timer = setInterval(poll, 3000);
       void poll();
-    } catch (e) { $('quick-status').innerHTML = '<span class="text-status-alert">launch failed: ' + esc(e.message) + '</span>'; }
+    } catch (e) {
+      $('quick-status').innerHTML = '<span class="text-status-alert">launch failed: ' + esc(e.message) + '</span>';
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }
   });
+
   async function poll() {
-    if (!job) return;
+    if (!activeJob) return;
     try {
-      const r = await (await fetch('/gdl/api/quick/' + job, { credentials: 'same-origin' })).json();
+      const r = await (await fetch('/gdl/api/quick/' + activeJob, { credentials: 'same-origin' })).json();
       const box = $('quick-log');
       box.innerHTML = (r.log || []).slice(-60).map((l) => '<div class="text-outline">' + esc(l) + '</div>').join('');
       box.scrollTop = box.scrollHeight;
       $('quick-status').innerHTML = 'state: <span class="text-white font-bold">' + esc(r.state) + '</span>';
+      // update history badge
+      const stateEl = document.getElementById('state-' + activeJob);
+      if (stateEl) {
+        const done = ['done', 'error', 'stopped'].includes(r.state);
+        const cls = r.state === 'done'
+          ? 'border-status-active/30 bg-status-active/10 text-status-active'
+          : r.state === 'running'
+          ? 'border-status-warning/40 bg-status-warning/15 text-status-warning'
+          : 'border-status-alert/40 bg-status-alert/15 text-status-alert';
+        stateEl.innerHTML = `<span class="rounded-[3px] border ${cls} px-2 py-0.5 text-[10px] font-bold">${esc(r.state)}</span>`;
+        if (done) clearInterval(timer);
+      }
       if (['done', 'error', 'stopped'].includes(r.state)) clearInterval(timer);
-    } catch (e) { /* retry */ }
+    } catch (_) { /* retry */ }
   }
 })();
 </script>
