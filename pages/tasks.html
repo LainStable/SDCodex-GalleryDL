@@ -6,52 +6,57 @@
 <title>GalleryDL — Tasks · SDCodex</title>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script>
 tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   background: "#0f131c", surface: "#0f131c", "surface-container-lowest": "#0a0e17",
   "surface-container-low": "#181b25", "surface-container": "#1c1f29",
   "surface-container-high": "#262a34", "surface-container-highest": "#31353f",
-  "slate-surface": "#1E293B", "slate-bg": "#0F172A",
-  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6", "badge-flux": "#EC4899",
   primary: "#c0c1ff", secondary: "#4cd7f6", tertiary: "#d0bcff",
   "status-active": "#10B981", "status-warning": "#F59E0B", "status-alert": "#EF4444",
-  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7", outline: "#908fa0", "outline-variant": "#464554"
-}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["JetBrains Mono"] } } } };
+  "badge-checkpoint": "#6366F1", "badge-sdxl": "#06B6D4", "badge-lora": "#8B5CF6",
+  "badge-flux": "#EC4899",
+  "on-surface": "#dfe2ef", "on-surface-variant": "#c7c4d7",
+  outline: "#908fa0", "outline-variant": "#464554"
+}, fontFamily: { display: ["Geist"], body: ["Inter"], mono: ["\"JetBrains Mono\"", "ui-monospace", "monospace"] } } } };
 </script>
 <style>
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; font-size: 18px; line-height: 1; display: inline-block; vertical-align: middle; }
 .scroll-thin::-webkit-scrollbar { width: 4px; height: 4px; }
 .scroll-thin::-webkit-scrollbar-track { background: #0a0e17; }
 .scroll-thin::-webkit-scrollbar-thumb { background: #31353f; border-radius: 4px; }
-</style>
-<style>
-/* iframe-width guards: never force the page wider than the frame */
 .gdl-page { max-width: 100%; overflow-x: clip; }
 .gdl-page table { table-layout: fixed; width: 100%; }
 .gdl-page pre { white-space: pre-wrap; word-break: break-word; }
-.gdl-page [class*="col-span"] { min-width: 0; }
 .gdl-page img { max-width: 100%; }
 </style>
 </head>
 <body class="bg-background text-on-surface antialiased min-h-screen font-body">
 <div class="gdl-page mx-auto max-w-full p-4 md:p-6 flex flex-col gap-6">
 
-  <!-- Plugin nav (tabs live in the app sidebar) -->
+  <!-- Plugin nav -->
   <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
     <span class="flex items-center gap-2 text-white font-semibold mr-2">
       <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
     </span>
-    <span class="text-ink-faint">· Tasks</span>
+    <a href="tasks.html" class="text-white font-semibold">Tasks</a>
+    <span class="text-ink-faint">·</span>
+    <a href="one-time.html" class="text-ink-faint hover:text-white">Quick Download</a>
+    <span class="text-ink-faint">·</span>
+    <a href="kiosks.html" class="text-ink-faint hover:text-white">Kiosks</a>
+    <span class="text-ink-faint">·</span>
+    <a href="oauth.html" class="text-ink-faint hover:text-white">OAuth</a>
+    <span class="text-ink-faint">·</span>
+    <a href="logs.html" class="text-ink-faint hover:text-white">Logs</a>
   </nav>
 
-  <!-- Header banner -->
+  <!-- Banner -->
   <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
     <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
-    <div class="flex flex-col gap-1.5">
-      <h1 class="font-display text-2xl font-bold tracking-tight">Batch Scraper &amp; Media Kiosk</h1>
+    <div class="flex flex-col gap-1.5 min-w-0">
+      <h1 class="font-display text-2xl font-bold tracking-tight truncate">Batch Scraper &amp; Media Kiosk</h1>
       <div class="flex items-center gap-2 flex-wrap font-mono text-[11px]">
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
           <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> gallery-dl <span id="eng-gdl" class="text-secondary font-semibold">…</span>
@@ -61,92 +66,180 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
           <span class="material-symbols-outlined text-xs text-status-warning">speed</span>
-          <span class="text-outline">Max Concurrency:</span> <span class="font-semibold">8 Workers</span>
+          <span class="text-outline">Max Concurrent:</span> <span id="max-concurrent" class="font-semibold">5</span>
         </span>
       </div>
     </div>
-    <div class="flex items-center gap-2 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap shrink-0">
       <a href="oauth.html" class="rounded-lg border border-outline-variant/40 bg-surface-container px-4 py-2 font-mono text-xs flex items-center gap-2 hover:border-badge-sdxl/60">
         <span class="material-symbols-outlined text-sm">key</span> OAuth Credentials Manager
       </a>
       <a href="kiosks.html" class="rounded-lg border border-outline-variant/50 bg-surface-container-high px-4 py-2 font-mono text-xs flex items-center gap-2">
         <span class="material-symbols-outlined text-sm text-secondary">slideshow</span> Kiosk Slideshow Mode
       </a>
-      <a href="one-time.html" class="rounded-lg bg-badge-checkpoint px-5 py-2 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20">
+      <!-- New batch scraping job button now goes to the task creation form -->
+      <a href="#new-task" onclick="document.getElementById('new-task-form').scrollIntoView({behavior:'smooth',block:'start'}); document.getElementById('cName').focus(); return false;" id="new-batch-btn" class="rounded-lg bg-badge-checkpoint px-5 py-2 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20 hover:opacity-90 transition-opacity">
         <span class="material-symbols-outlined text-sm">add_to_photos</span> New Batch Scraping Job
       </a>
     </div>
   </section>
 
   <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-    <!-- Queue table -->
-    <div class="col-span-1 xl:col-span-8 min-w-0 rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-      <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
-          <h2 class="font-display text-base font-semibold">Active Ingestion Pipeline &amp; Queue</h2>
-          <span id="active-count" class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">…</span>
-        </div>
-        <div class="flex items-center gap-1 text-outline">
-          <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Pause All"><span class="material-symbols-outlined text-sm">pause</span></button>
-          <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Clear Completed"><span class="material-symbols-outlined text-sm">clear_all</span></button>
-          <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Export Job Log"><span class="material-symbols-outlined text-sm">output</span></button>
-        </div>
-      </div>
-      <div class="overflow-x-auto scroll-thin">
-        <table class="w-full text-left border-collapse font-mono text-xs">
-          <thead>
-            <tr class="border-b border-outline-variant/20 bg-surface-container-lowest/30 text-outline font-mono text-[11px] uppercase">
-              <th class="py-2.5 px-5">Source &amp; Target</th>
-              <th class="py-2.5 px-5">Platform</th>
-              <th class="py-2.5 px-5 w-48">Progress &amp; Telemetry</th>
-              <th class="py-2.5 px-5">ETA / Speed</th>
-              <th class="py-2.5 px-5">Status</th>
-              <th class="py-2.5 px-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="job-rows" class="divide-y divide-outline-variant/20">
-            <tr id="jobs-empty"><td colspan="6" class="py-8 px-5 text-center text-outline">No tasks yet — create one from Quick Download.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- Main tasks column -->
+    <div class="col-span-1 xl:col-span-8 min-w-0 flex flex-col gap-6">
 
-    <!-- Right column -->
-    <div class="col-span-1 xl:col-span-4 min-w-0 flex flex-col gap-6">
-      <!-- Terminal -->
-      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-        <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
-          <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
-          <div class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</div>
+      <!-- New task creation form -->
+      <section id="new-task-form" class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="material-symbols-outlined text-badge-checkpoint">add_circle</span>
+          <h2 class="font-display text-base font-semibold">New Batch Scraping Job</h2>
         </div>
-        <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
-          <div class="text-outline">connecting…</div>
+        <form id="fCreate" class="flex flex-col gap-4" onsubmit="event.preventDefault(); createTask();">
+          <input type="hidden" name="original_slug" id="originalSlug" value=""/>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cName">Task name</label>
+              <input id="cName" name="name" type="text" placeholder="e.g. nature-batch-01" required
+                class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+              <p class="font-mono text-[10px] text-outline">Folder: <code>/data/tasks/&lt;name&gt;</code></p>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cSched">Schedule (cron)</label>
+              <div class="flex gap-2">
+                <input id="cSched" name="schedule" type="text" placeholder="*/5 * * * *  (optional)"
+                  class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+                <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+                  <input id="cModeManual" type="radio" name="schedule_mode" value="manual" checked class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=true; document.getElementById('cSched').placeholder='— manual / on-demand —'; document.getElementById('cSched').value=''"/>
+                  <span>Manual</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+                  <input id="cModeCron" type="radio" name="schedule_mode" value="cron" class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=false; document.getElementById('cSched').placeholder='*/5 * * * *';"/>
+                  <span>Recurring</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cUrls">Target URLs <span class="text-outline font-normal">(one per line, max 100)</span></label>
+            <textarea id="cUrls" name="urls" rows="6" placeholder="https://example.com/feed&#10;https://reddit.com/r/…"
+              required class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
+            <div class="flex items-center gap-2">
+              <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[10px] cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
+                <input type="file" id="cUrlsFile" name="urls_file" accept=".txt,.csv" class="hidden" onchange="document.getElementById('cUrlsFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload .txt file'; document.getElementById('cUrlsFileNote').textContent = this.files && this.files[0] ? '' : 'No limit on file uploads.';"/>
+                <span id="cUrlsFileLabel">Upload .txt file</span>
+              </label>
+              <span id="cUrlsFileNote" class="font-mono text-[9px] text-outline">No limit on file uploads.</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cConfig">Config file (--config)</label>
+            <input id="cConfig" name="command" type="text" placeholder="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf"
+              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors" value="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf"/>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cOauth">OAuth / Cookie Profile</label>
+              <select id="cOauth" name="oauth_site" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors">
+                <option value="">— No credentials —</option>
+                <option value="deviantart">DeviantArt</option>
+                <option value="reddit">Reddit</option>
+                <option value="flickr">Flickr</option>
+                <option value="tumblr">Tumblr</option>
+                <option value="mastodon">Mastodon</option>
+                <option value="pixiv">Pixiv (requires stdin code flow)</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cCookie">Cookie File (--cookies)</label>
+              <input id="cCookie" name="cookie_file" type="text" placeholder="cookies-reddit.txt"
+                class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+            </div>
+            <div class="flex items-end">
+              <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-3 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none">
+                <input id="cStart" name="start" type="checkbox" checked class="accent-[#6366f1] rounded"/>
+                <span class="font-mono text-[11px] font-medium">Run on create</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button type="submit" class="rounded-lg bg-badge-checkpoint px-5 py-2.5 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20 hover:opacity-90 transition-opacity">
+              <span class="material-symbols-outlined text-sm">add_circle</span> Create Task
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Queue table -->
+      <div class="col-span-1 xl:col-span-8 min-w-0 rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+        <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
+            <h2 class="font-display text-base font-semibold">Active Ingestion Pipeline &amp; Queue</h2>
+            <span id="active-count" class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">…</span>
+          </div>
+          <div class="flex items-center gap-1 text-outline">
+            <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Pause All" onclick="act('', 'pause_all')"><span class="material-symbols-outlined text-sm">pause</span></button>
+            <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Clear Completed" onclick="if(!confirm('Clear completed tasks?'))return; act('', 'clear_completed')"><span class="material-symbols-outlined text-sm">clear_all</span></button>
+          </div>
+        </div>
+        <div class="overflow-x-auto scroll-thin">
+          <table class="w-full text-left border-collapse font-mono text-xs">
+            <thead><tr class="border-b border-outline-variant/20 bg-surface-container-lowest/30 text-outline font-mono text-[11px] uppercase">
+              <th class="py-2.5 px-5">Task</th>
+              <th class="py-2.5 px-5">Schedule</th>
+              <th class="py-2.5 px-5 w-48">Status</th>
+              <th class="py-2.5 px-5">Started</th>
+              <th class="py-2.5 px-5">Commands</th>
+              <th class="py-2.5 px-5">Source URLs</th>
+              <th class="py-2.5 px-5 text-right">Actions</th>
+            </tr></thead>
+            <tbody id="job-rows" class="divide-y divide-outline-variant/20">
+              <tr id="jobs-empty"><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — create one above.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <!-- Telemetry -->
-      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
-          <span class="font-mono text-[11px] font-bold text-status-warning">NVMe RAID 0</span>
+
+      <!-- Right: terminal + telemetry -->
+      <div class="col-span-1 xl:col-span-4 min-w-0 flex flex-col gap-6">
+        <!-- Terminal -->
+        <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+          <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+            <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
+            <div class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</div>
+          </div>
+          <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
+            <div class="text-outline">pipeline idle — no tasks yet.</div>
+          </div>
         </div>
-        <div class="flex justify-between font-mono text-[11px]"><span id="tele-dir">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
-        <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
-          <div class="bg-badge-checkpoint h-full" style="width:14%"></div>
-          <div class="bg-badge-sdxl h-full" style="width:5%"></div>
-          <div class="bg-badge-lora h-full" style="width:1.6%"></div>
-        </div>
-        <div class="flex items-center justify-between font-mono text-[10px] text-outline">
-          <span id="tele-images">…</span><span id="tele-tasks">…</span>
-        </div>
-        <div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px]">
-          <span class="text-outline">Estimated free capacity:</span><span class="text-status-active font-semibold">1,588 GB (~380k items)</span>
+        <!-- Telemetry -->
+        <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
+            <span class="font-mono text-[11px] font-bold text-status-warning">NVMe RAID 0</span>
+          </div>
+          <div class="flex justify-between font-mono text-[11px]"><span id="tele-dir">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
+          <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
+            <div class="bg-badge-checkpoint h-full" style="width:14%"></div>
+            <div class="bg-badge-sdxl h-full" style="width:5%"></div>
+            <div class="bg-badge-lora h-full" style="width:1.6%"></div>
+          </div>
+          <div class="flex items-center justify-between font-mono text-[10px] text-outline">
+            <span id="tele-images">…</span><span id="tele-tasks">…</span>
+          </div>
+          <div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px]">
+            <span class="text-outline">Estimated free capacity:</span><span class="text-status-active font-semibold">1,588 GB (~380k items)</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Filmstrip -->
+  <!-- Recent scraped filmstrip -->
   <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">photo_library</span>
@@ -191,6 +284,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </div>
   </div>
 </div>
+
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -215,44 +309,93 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     void refresh();
   }
   window.gdlAct = act;
+
+  // Create new batch scraping job -> scroll to the form at top of page
+  document.getElementById('new-task-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('cName').focus();
+
+  async function createTask() {
+    const form = document.getElementById('fCreate');
+    const btn = document.getElementById('new-batch-btn');
+    btn.textContent = 'Creating…'; btn.disabled = true;
+    const fd = new FormData(form);
+    const urlsText = fd.get('urls') || '';
+    const urlLines = urlsText.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+    const payload = {
+      name: (fd.get('name') || '').trim(),
+      urls: urlLines,
+      command: fd.get('command') || '',
+      start: fd.get('start') === 'on' || fd.get('start') === 'true',
+      schedule: fd.get('schedule_mode') === 'cron' ? (fd.get('schedule') || '').trim() || '' : '',
+      oauth_site: fd.get('oauth_site') || '',
+      cookie_path: fd.get('cookie_file') || '',
+    };
+    if (!payload.name || payload.urls.length === 0) {
+      alert('Task name and at least one URL are required.');
+      btn.textContent = 'Create Task'; btn.disabled = false;
+      return;
+    }
+    try {
+      const r = await fetch('/gdl/api/tasks', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        alert('Error: ' + (d.error || r.status));
+      } else {
+        // Success: refresh list + show the task
+        await refresh();
+        // Scroll to the table
+        document.querySelector('.gdl-page > div.grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (e) {
+      alert('Request failed: ' + (e.message || e));
+    } finally {
+      btn.textContent = 'Create Task'; btn.disabled = false;
+    }
+  }
+  window.createTask = createTask;
+
   function row(t) {
     const [label, cls, live] = STATE[t.state] || STATE.idle;
     const pct = t.progress;
+    const scheduleDisplay = t.schedule ? '<span class="rounded-[3px] border border-outline-variant/20 bg-surface-container px-1.5 font-mono text-[9px] text-secondary">' + esc(t.schedule) + '</span>' : '<span class="text-outline/40">— manual —</span>';
     const bar = pct != null
-      ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
-      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls} urls</span><span>${esc(t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full ${live ? 'bg-secondary w-2/5 animate-pulse' : 'bg-outline w-0'} rounded-full"></div></div>`;
+      ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
+      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full ${live ? 'bg-secondary w-2/5 animate-pulse' : 'bg-outline w-0'} rounded-full"></div></div>`;
     const btns = t.state === 'running'
-      ? `<button class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop" onclick="gdlAct('${t.slug}','stop')"><span class="material-symbols-outlined text-xs">stop</span></button>`
-      : `<button class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Start" onclick="gdlAct('${t.slug}','start')"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`;
-    return `<tr class="hover:bg-slate-surface/40">
-      <td class="py-3 px-5"><div class="font-semibold text-white">${esc(t.name)}</div><div class="text-outline truncate max-w-xs">${esc(t.slug)}</div></td>
-      <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-badge-sdxl/30 bg-badge-sdxl/10 px-2 py-0.5 text-badge-sdxl font-semibold">${esc(t.platform || 'Web')}</span></td>
+      ? `<button onclick="gdlAct('${t.slug}','stop')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop"><span class="material-symbols-outlined text-xs">stop</span></button>`
+      : `<button onclick="gdlAct('${t.slug}','start')" class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Start"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`;
+    return `<tr class="hover:bg-slate-surface/30 transition-colors">
+      <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
+      <td class="py-3 px-5">${scheduleDisplay}</td>
       <td class="py-3 px-5">${bar}</td>
-      <td class="py-3 px-5"><div class="text-outline text-[10px]">${t.started_at ? esc(t.started_at.slice(0, 16).replace('T', ' ')) : '—'}</div>${t.last_error ? `<div class="text-status-alert text-[10px] truncate max-w-[12rem]" title="${esc(t.last_error)}">${esc(t.last_error)}</div>` : ''}</td>
-      <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${cls}">${live ? '<span class="h-1.5 w-1.5 rounded-full bg-status-active animate-pulse"></span>' : ''}${label}</span></td>
-      <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">${btns}<button class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Delete" onclick="gdlAct('${t.slug}','delete')"><span class="material-symbols-outlined text-xs">close</span></button></div></td>
+      <td class="py-3 px-5 text-[10px] text-outline">${t.started_at ? esc(t.started_at.slice(0,16).replace('T',' ')) : '—'}</td>
+      <td class="py-3 px-5"><span class="font-mono text-[10px] text-outline truncate block max-w-[10rem]">${esc(t.command || 'gallery-dl --input-file urls.txt')}</span></td>
+      <td class="py-3 px-5"><span class="font-mono text-[10px] text-outline">${t.urls || 0}</span></td>
+      <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">${btns}<button onclick="if(!confirm('Delete this task and its folder?'))return;gdlAct('${t.slug}','delete')" class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Delete"><span class="material-symbols-outlined text-xs">delete_forever</span></button></div></td>
     </tr>`;
   }
   async function refresh() {
     try {
-      const [eng, tj, tele, mj] = await Promise.all([
+      const [eng, tj, tele] = await Promise.all([
         jget('/gdl/api/engines').catch(() => null),
         jget('/gdl/api/tasks').catch(() => null),
         jget('/gdl/api/telemetry').catch(() => null),
-        jget('/gdl/api/media/recent').catch(() => null),
       ]);
       if (eng) {
-        $('eng-gdl').textContent = eng.gallery_dl + ' active';
-        $('eng-ytdlp').textContent = eng.yt_dlp + ' engine ready';
+        $('eng-gdl').textContent = (eng.gallery_dl || 'missing') + ' active';
+        $('eng-ytdlp').textContent = (eng.yt_dlp || 'missing') + ' engine ready';
       }
       const tasks = (tj && tj.tasks) || [];
       const active = tasks.filter((t) => t.state === 'running').length;
       $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
-      const tb = $('job-rows');
-      tb.innerHTML = tasks.length === 0
-        ? '<tr><td colspan="6" class="py-8 px-5 text-center text-outline">No tasks yet — create one from Quick Download.</td></tr>'
+      $('job-rows').innerHTML = tasks.length === 0
+        ? '<tr><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — press "New Batch Scraping Job" above to create one.</td></tr>'
         : tasks.map(row).join('');
-      // terminal: tail the most recent running task (else newest task)
       const focus = tasks.find((t) => t.state === 'running') || tasks[0];
       if (focus) {
         const lj = await jget(`/gdl/api/tasks/${focus.slug}/log?lines=40`).catch(() => null);
@@ -260,6 +403,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           $('term-box').innerHTML = lj.lines.slice(-24).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
             + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(focus.slug) + '</span></div>';
           $('term-box').scrollTop = $('term-box').scrollHeight;
+        } else {
+          $('term-box').innerHTML = '<div class="text-outline">tail -f ' + esc(focus.slug) + ' (log loading)</div>';
         }
       } else {
         $('term-box').innerHTML = '<div class="text-outline">pipeline idle — no tasks yet.</div>';
@@ -270,37 +415,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         $('tele-images').textContent = `Images (${tele.images_gb} GB)`;
         $('tele-tasks').textContent = `Tasks (${tele.tasks_gb} GB)`;
       }
-      const grid = $('film-grid');
-      const media = (mj && mj.media) || [];
-      grid.innerHTML = media.length === 0
-        ? '<div class="col-span-full py-8 text-center font-mono text-[11px] text-outline">No scraped media yet.</div>'
-        : media.slice(0, 6).map((m) => `
-          <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
-            <div class="relative h-44 bg-surface-container-high overflow-hidden">
-              <img src="/gdl/api/media/file?path=${encodeURIComponent(m.rel)}" alt="" loading="lazy" class="h-full w-full object-cover" onerror="this.remove()"/>
-              <span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-secondary border border-secondary/30">${esc(m.name.split('.').pop().toUpperCase())}</span>
-            </div>
-            <div class="p-3 flex flex-col gap-1">
-              <span class="text-sm font-medium truncate">${esc(m.name)}</span>
-              <div class="flex justify-between font-mono text-[11px] text-outline"><span>${new Date(m.mtime * 1000).toLocaleString()}</span><span>${fmtMB(m.size)}</span></div>
-            </div>
-          </div>`).join('');
     } catch (e) { /* backend waking up */ }
   }
   void refresh();
   setInterval(refresh, 5000);
 })();
 </script>
-<script>
-(function () {
-  const m = location.pathname.match(/\/plugins\/([^/]+)\/page\//);
-  if (!m) return;
-  const base = `/api/plugins/${m[1]}/page/`;
-  document.querySelectorAll('a[href$=".html"]').forEach((a) => {
-    const name = a.getAttribute('href').replace(/\.html$/, '');
-    a.setAttribute('href', base + name);
-  });
-})();
-</script>
+</div>
 </body>
 </html>

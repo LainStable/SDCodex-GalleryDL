@@ -152,11 +152,13 @@ def _task_info(slug: str) -> dict:
                 break
             except ValueError:
                 pass
+    schedule = _read_file_strip(os.path.join(base, "cron.txt"))
     return {
         "slug": slug,
         "name": st.get("name") or _read_file_strip(os.path.join(base, "name.txt")) or slug,
         "urls": len(urls),
         "state": state,
+        "schedule": schedule,
         "progress": pct,
         "started_at": st.get("started_at"),
         "finished_at": st.get("finished_at"),
