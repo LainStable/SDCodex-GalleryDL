@@ -129,19 +129,21 @@ def _env(name: str, default: str) -> str:
 
 
 def tasks_dir() -> str:
-    d = _env("TASKS", "/data/tasks")
+    # Old GalleryDL releases used *_DIR. Keep honoring those variables so an
+    # upgrade continues reading the existing mounted task directory.
+    d = _env("TASKS", os.environ.get("TASKS_DIR") or "/data/tasks")
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def config_dir() -> str:
-    d = _env("CONFIG", "/data/config")
+    d = _env("CONFIG", os.environ.get("CONFIG_DIR") or "/data/config")
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def downloads_dir() -> str:
-    return _env("IMAGES", "/data/downloads")
+    return _env("IMAGES", os.environ.get("DOWNLOADS_DIR") or "/data/downloads")
 
 
 def _slug(name: str) -> str:
