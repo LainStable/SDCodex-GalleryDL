@@ -1,6 +1,6 @@
 {
   "id": "gallery-dl",
-  "name": "GalleryDL & Tools",
+  "name": "gallerydl",
   "version": "0.1.6",
   "description": "Background gallery-dl and yt-dlp task management, quick downloads, kiosks, OAuth configuration, and a persistent activity log.",
   "author": "LainStable",

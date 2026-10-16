@@ -554,15 +554,12 @@ def config_write():
     content = data.get("content", "")
     if not isinstance(content, str) or len(content) > 200_000:
         return jsonify({"error": "bad content"}), 400
-    try:
-        parsed = json.loads(content)
-        if not isinstance(parsed, dict):
-            raise ValueError("top-level JSON object required")
-    except Exception as e:
-        return jsonify({"error": f"invalid JSON: {e}"}), 400
+    # gallery-dl.conf is a plain-text INI-style config (not JSON). Accept both:
+    # if the client sends JSON-structured content, keep it as-is; otherwise
+    # treat the raw text directly so existing .conf files work.
     path = os.path.join(config_dir(), "gallery-dl.conf")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.write(str(content))
     return jsonify({"ok": True, "path": path})
 
 
