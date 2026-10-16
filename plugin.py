@@ -11,7 +11,9 @@ if plugin_dir not in sys.path:
 def init_plugin(app, db, plugin_info=None):
     """Register the /gdl/api blueprint. Static pages are served by core."""
     from plugin_backend import gdl_api
+    from plugin_backend import _init_scheduler
 
     if "gdl_api" not in app.blueprints:
         app.register_blueprint(gdl_api)
+    _init_scheduler()
     return True

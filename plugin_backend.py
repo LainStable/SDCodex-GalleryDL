@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+import shlex
 
 from flask import Blueprint, jsonify, request
 
@@ -22,6 +23,54 @@ gdl_api = Blueprint("gdl_api", __name__, url_prefix="/gdl/api")
 _procs: dict = {}          # slug -> Popen (task runs)
 _quick: dict = {}          # job_id -> {state, log file, proc, ...}
 _lock = threading.Lock()
+_scheduler = None
+
+
+def _init_scheduler():
+    """Start cron jobs declared by task folders, preserving the task layout."""
+    global _scheduler
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+    except ImportError:
+        return False
+    if _scheduler is None:
+        _scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
+        _scheduler.start()
+    for slug in sorted(os.listdir(tasks_dir())):
+        base = os.path.join(tasks_dir(), slug)
+        expr = _read_file_strip(os.path.join(base, "cron.txt")) if os.path.isdir(base) else ""
+        if not expr:
+            continue
+        try:
+            _scheduler.add_job(_run_task, CronTrigger.from_crontab(expr, timezone="UTC"),
+                               args=[slug], id=f"task_{slug}", replace_existing=True,
+                               max_instances=1, coalesce=True)
+        except Exception:
+            continue
+    return True
+
+
+def _set_schedule(slug: str, expr: str):
+    if not expr:
+        if _scheduler:
+            try:
+                _scheduler.remove_job(f"task_{slug}")
+            except Exception:
+                pass
+        try:
+            os.remove(os.path.join(tasks_dir(), slug, "cron.txt"))
+        except FileNotFoundError:
+            pass
+        return
+    if not _init_scheduler():
+        raise RuntimeError("Scheduled tasks require APScheduler; install plugin requirements")
+    from apscheduler.triggers.cron import CronTrigger
+    trigger = CronTrigger.from_crontab(expr, timezone="UTC")
+    _scheduler.add_job(_run_task, trigger, args=[slug], id=f"task_{slug}",
+                       replace_existing=True, max_instances=1, coalesce=True)
+    with open(os.path.join(tasks_dir(), slug, "cron.txt"), "w", encoding="utf-8") as f:
+        f.write(expr + "\n")
 
 
 # ------------------------------------------------------------- helpers ---
@@ -189,7 +238,12 @@ def _run_task(slug: str) -> None:
     st = _read_json(st_path, {})
     st.update({"state": "running", "started_at": _now(), "finished_at": None, "last_error": None})
     _write_json(st_path, st)
-    cmd = (st.get("command") or "gallery-dl --input-file urls.txt").split()
+    try:
+        cmd = shlex.split(st.get("command") or "gallery-dl --input-file urls.txt")
+    except ValueError as e:
+        st.update({"state": "error", "finished_at": _now(), "last_error": str(e)[:300]})
+        _write_json(st_path, st)
+        return
     _append_log(log_path, f"[launcher] $ {' '.join(cmd)}")
     try:
         proc = subprocess.Popen(
@@ -274,6 +328,13 @@ def tasks_create():
         "name": name, "state": "idle", "command": data.get("command") or "gallery-dl --input-file urls.txt",
     })
     open(os.path.join(base, "stdout.log"), "a").close()
+    schedule = (data.get("schedule") or "").strip()
+    if schedule:
+        try:
+            _set_schedule(slug, schedule)
+        except Exception as e:
+            shutil.rmtree(base, ignore_errors=True)
+            return jsonify({"error": f"invalid or unavailable schedule: {str(e)[:200]}"}), 400
     if data.get("start"):
         threading.Thread(target=_run_task, args=(slug,), daemon=True).start()
     return jsonify({"ok": True, "task": _task_info(slug)})
@@ -334,6 +395,7 @@ def task_delete(slug: str):
     base = os.path.join(tasks_dir(), slug)
     if not os.path.isdir(base):
         return jsonify({"error": "unknown task"}), 404
+    _set_schedule(slug, "")
     with _lock:
         proc = _procs.get(slug)
         if proc is not None and proc.poll() is None:
@@ -370,15 +432,21 @@ def quick_start():
     os.makedirs(dest, exist_ok=True)
     job_id = uuid.uuid4().hex[:12]
     log_path = os.path.join(tasks_dir(), f".quick-{job_id}.log")
-    cmd = ["gallery-dl", "--write-metadata", "-d", dest]
+    cmd = ["gallery-dl", "-d", dest]
+    if data.get("save_metadata", True):
+        cmd.append("--write-metadata")
     conf = (data.get("config") or "").strip()
     if conf:
         cmd += ["--config", conf]
     archive = (data.get("archive") or "").strip()
     if archive:
         cmd += ["--download-archive", archive]
-    if data.get("images_only", True):
-        cmd += ["--filter", "extension in ('jpg', 'jpeg', 'png', 'webp', 'gif')"]
+    if data.get("images_only", True) or data.get("include_video", False):
+        extensions = ["jpg", "jpeg", "png", "webp", "gif"]
+        if data.get("include_video", False):
+            extensions += ["mp4", "webm", "mkv", "mov"]
+        quoted = ", ".join(repr(ext) for ext in extensions)
+        cmd += ["--filter", f"extension in ({quoted})"]
     if data.get("min_width"):
         try:
             cmd += ["--filter", f"image_width >= {int(data['min_width'])}"]

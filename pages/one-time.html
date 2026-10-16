@@ -106,9 +106,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
               <input id="q-images-only" checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Images Only</span></label>
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
-              <input class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Include Video</span></label>
+              <input id="q-include-video" class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Include Video</span></label>
             <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest p-2 cursor-pointer hover:border-badge-checkpoint/40">
-              <input checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Save Metadata</span></label>
+              <input id="q-save-metadata" checked class="rounded accent-[#6366f1]" type="checkbox"/><span class="font-mono text-[11px]">Save Metadata</span></label>
           </div>
         </div>
 
@@ -170,7 +170,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 
   // -- CLI preview updater --
   function buildPreview() {
-    const parts = ['gallery-dl', '--write-metadata'];
+    const parts = ['gallery-dl'];
+    if ($('q-save-metadata').checked) parts.push('--write-metadata');
     const dest = $('q-dest').value.trim();
     if (dest) parts.push('-d', dest);
     const conf = $('q-config').value.trim();
@@ -179,15 +180,18 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     if (arc) parts.push('--download-archive', arc);
     const cookie = $('q-cookie').value;
     if (cookie) parts.push('--cookies', cookie);
-    if ($('q-images-only').checked)
-      parts.push('--filter', "extension in ('jpg','jpeg','png','webp','gif')");
+    if ($('q-images-only').checked || $('q-include-video').checked) {
+      const extensions = ['jpg','jpeg','png','webp','gif'];
+      if ($('q-include-video').checked) extensions.push('mp4','webm','mkv','mov');
+      parts.push('--filter', `extension in (${extensions.map(x => `'${x}'`).join(',')})`);
+    }
     if ($('q-minwidth').checked)
       parts.push('--filter', 'image_width >= 1024');
     const url = $('q-url').value.trim();
     if (url) parts.push(url);
     $('cli-preview').textContent = parts.join(' \\\n  ');
   }
-  ['q-url','q-dest','q-config','q-archive','q-cookie','q-images-only','q-minwidth'].forEach(id => {
+  ['q-url','q-dest','q-config','q-archive','q-cookie','q-images-only','q-include-video','q-save-metadata','q-minwidth'].forEach(id => {
     const el = $(id);
     if (el) el.addEventListener('input', buildPreview);
     if (el) el.addEventListener('change', buildPreview);
@@ -245,6 +249,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         archive: $('q-archive').value.trim() || undefined,
         cookie_file: $('q-cookie').value || undefined,
         images_only: $('q-images-only').checked,
+        include_video: $('q-include-video').checked,
+        save_metadata: $('q-save-metadata').checked,
         min_width: $('q-minwidth').checked ? 1024 : undefined,
       };
       const r = await post('/gdl/api/quick', payload);
