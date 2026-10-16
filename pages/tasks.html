@@ -36,22 +36,6 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 <body class="bg-background text-on-surface antialiased min-h-screen font-body">
 <div class="gdl-page mx-auto max-w-full p-4 md:p-6 flex flex-col gap-6">
 
-  <!-- Plugin nav -->
-  <nav class="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]">
-    <span class="flex items-center gap-2 text-white font-semibold mr-2">
-      <span class="material-symbols-outlined text-badge-sdxl" style="font-variation-settings:'FILL' 1;">cloud_download</span>
-    </span>
-    <a href="tasks.html" class="text-white font-semibold">Tasks</a>
-    <span class="text-ink-faint">·</span>
-    <a href="one-time.html" class="text-ink-faint hover:text-white">Quick Download</a>
-    <span class="text-ink-faint">·</span>
-    <a href="kiosks.html" class="text-ink-faint hover:text-white">Kiosks</a>
-    <span class="text-ink-faint">·</span>
-    <a href="oauth.html" class="text-ink-faint hover:text-white">OAuth</a>
-    <span class="text-ink-faint">·</span>
-    <a href="logs.html" class="text-ink-faint hover:text-white">Logs</a>
-  </nav>
-
   <!-- Banner -->
   <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
     <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
@@ -71,10 +55,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       </div>
     </div>
     <div class="flex items-center gap-2 flex-wrap shrink-0">
-      <a href="oauth.html" class="rounded-lg border border-outline-variant/40 bg-surface-container px-4 py-2 font-mono text-xs flex items-center gap-2 hover:border-badge-sdxl/60">
+      <a href="/api/plugins/gallery-dl/page/oauth" class="rounded-lg border border-outline-variant/40 bg-surface-container px-4 py-2 font-mono text-xs flex items-center gap-2 hover:border-badge-sdxl/60">
         <span class="material-symbols-outlined text-sm">key</span> OAuth Credentials Manager
       </a>
-      <a href="kiosks.html" class="rounded-lg border border-outline-variant/50 bg-surface-container-high px-4 py-2 font-mono text-xs flex items-center gap-2">
+      <a href="/api/plugins/gallery-dl/page/kiosks" class="rounded-lg border border-outline-variant/50 bg-surface-container-high px-4 py-2 font-mono text-xs flex items-center gap-2">
         <span class="material-symbols-outlined text-sm text-secondary">slideshow</span> Kiosk Slideshow Mode
       </a>
       <!-- New batch scraping job button now goes to the task creation form -->
@@ -187,6 +171,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Clear Completed" onclick="if(!confirm('Clear completed tasks?'))return; act('', 'clear_completed')"><span class="material-symbols-outlined text-sm">clear_all</span></button>
           </div>
         </div>
+        <div class="flex flex-wrap items-center gap-2 border-b border-outline-variant/20 px-4 py-3">
+          <input id="task-search" type="search" placeholder="Search tasks…" aria-label="Search tasks"
+            class="min-w-[12rem] flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:border-badge-checkpoint focus:outline-none"/>
+          <div id="task-filters" class="flex flex-wrap gap-1.5" aria-label="Filter tasks">
+            <button type="button" data-filter="all" class="task-filter active rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1 font-mono text-[10px] text-primary">All</button>
+            <button type="button" data-filter="running" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Running</button>
+            <button type="button" data-filter="paused" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Paused</button>
+            <button type="button" data-filter="error" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Errors</button>
+            <button type="button" data-filter="idle" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Idle</button>
+          </div>
+        </div>
         <div class="overflow-x-auto scroll-thin">
           <table class="w-full text-left border-collapse font-mono text-xs">
             <thead><tr class="border-b border-outline-variant/20 bg-surface-container-lowest/30 text-outline font-mono text-[11px] uppercase">
@@ -203,6 +198,22 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             </tbody>
           </table>
         </div>
+        <section id="task-details" class="hidden border-t border-outline-variant/30 bg-surface-container-lowest/40 p-5">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div><h3 id="detail-title" class="font-display font-semibold">Task details</h3><p id="detail-subtitle" class="mt-1 font-mono text-[10px] text-outline"></p></div>
+            <button type="button" onclick="document.getElementById('task-details').classList.add('hidden')" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 font-mono text-xs text-outline hover:text-white">Close</button>
+          </div>
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+              <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Run history</h4>
+              <div id="detail-history" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
+            </div>
+            <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+              <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Recent downloads</h4>
+              <div id="detail-recent" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- Right: terminal + telemetry -->
@@ -257,6 +268,26 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtMB = (b) => (b / 1048576).toFixed(1) + ' MB';
+  let taskFilter = 'all';
+  let taskRows = [];
+  const search = $('task-search');
+  function applyTaskFilters() {
+    const query = (search?.value || '').trim().toLowerCase();
+    document.querySelectorAll('#job-rows tr[data-task]').forEach((tr) => {
+      const matchesText = !query || tr.dataset.task.includes(query);
+      const matchesState = taskFilter === 'all' || tr.dataset.state === taskFilter || (taskFilter === 'idle' && ['idle', 'stopped', 'done'].includes(tr.dataset.state));
+      tr.hidden = !(matchesText && matchesState);
+    });
+  }
+  search?.addEventListener('input', applyTaskFilters);
+  document.querySelectorAll('.task-filter').forEach((button) => button.addEventListener('click', () => {
+    taskFilter = button.dataset.filter;
+    document.querySelectorAll('.task-filter').forEach((item) => {
+      const active = item === button;
+      item.className = `task-filter rounded-[3px] border px-2.5 py-1 font-mono text-[10px] ${active ? 'active border-badge-checkpoint/50 bg-badge-checkpoint/15 text-primary' : 'border-outline-variant/40 text-outline'}`;
+    });
+    applyTaskFilters();
+  }));
   const STATE = {
     running: ['Downloading', 'border-status-active/40 bg-status-active/10 text-status-active', true],
     done: ['Finished', 'border-status-active/30 bg-status-active/10 text-status-active', false],
@@ -340,8 +371,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       `<button onclick="gdlAct('${t.slug}','pause')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Pause or resume"><span class="material-symbols-outlined text-xs">pause_circle</span></button><button onclick="gdlAct('${t.slug}','clear_logs')" class="p-1 rounded hover:bg-surface-container" title="Clear task logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>` +
       (t.has_archive ? `<button onclick="gdlAct('${t.slug}','delete_archive')" class="p-1 rounded hover:bg-surface-container" title="Remove download archive"><span class="material-symbols-outlined text-xs">database</span></button>` : '') +
       (t.has_cookies ? `<button onclick="gdlAct('${t.slug}','delete_cookies')" class="p-1 rounded hover:bg-surface-container" title="Remove task cookies"><span class="material-symbols-outlined text-xs">cookie</span></button>` : '') +
-      `<button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="${location.pathname.replace(/tasks(?:\.html)?$/, 'logs')}?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
-    return `<tr class="hover:bg-slate-surface/30 transition-colors">
+      `<button onclick="showTaskDetails('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="History and recent downloads"><span class="material-symbols-outlined text-xs">history</span></button><button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="${location.pathname.replace(/tasks(?:\.html)?$/, 'logs')}?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
+    return `<tr data-task="${esc(`${t.name || ''} ${t.slug || ''} ${t.command || ''}`).toLowerCase()}" data-state="${esc(t.state || 'idle')}" class="hover:bg-slate-surface/30 transition-colors">
       <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
       <td class="py-3 px-5">${scheduleDisplay}</td>
       <td class="py-3 px-5">${bar}</td>
@@ -361,6 +392,28 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     $('cStart').checked = false;
     $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
     $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
+  };
+  window.showTaskDetails = async (slug) => {
+    const task = taskRows.find((item) => item.slug === slug);
+    if (!task) return;
+    $('task-details').classList.remove('hidden');
+    $('detail-title').textContent = task.name || slug;
+    $('detail-subtitle').textContent = `${slug} · ${task.state || 'idle'} · ${task.urls || 0} source URLs`;
+    $('detail-history').textContent = 'Loading…';
+    $('detail-recent').textContent = 'Loading…';
+    $('task-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const [history, recent] = await Promise.all([
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/history`).catch(() => null),
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/recent`).catch(() => null),
+    ]);
+    const runs = history?.runs || [];
+    $('detail-history').innerHTML = runs.length ? runs.map((run) => `<div class="flex items-center justify-between gap-3 border-b border-outline-variant/15 pb-2"><span class="${run.success ? 'text-status-active' : 'text-status-alert'}">${run.success ? 'Completed' : 'Failed'} · exit ${Number(run.exit) || 0}</span><span>${esc(run.ts || '—')} · ${Number(run.duration || 0)}s</span></div>`).join('') : '<div>No recorded runs yet.</div>';
+    const items = recent?.items || [];
+    $('detail-recent').innerHTML = items.length ? items.map((item) => {
+      const url = item.url || '/gdl/api/media/file?path=' + encodeURIComponent(item.rel || '');
+      const preview = item.is_image ? `<img src="${url}" loading="lazy" alt="" class="h-12 w-12 rounded object-cover">` : '<span class="material-symbols-outlined text-secondary">movie</span>';
+      return `<a href="${url}" target="_blank" rel="noreferrer" class="flex items-center gap-3 rounded border border-outline-variant/20 p-2 hover:border-secondary/40">${preview}<span class="min-w-0"><span class="block truncate text-on-surface">${esc(item.name || item.rel)}</span><span class="text-[10px]">${fmtMB(Number(item.size) || 0)}</span></span></a>`;
+    }).join('') : '<div>No recent downloads found for this task.</div>';
   };
   async function refresh() {
     try {
@@ -382,6 +435,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       $('job-rows').innerHTML = tasks.length === 0
         ? '<tr><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — press "New Batch Scraping Job" above to create one.</td></tr>'
         : tasks.map(row).join('');
+      taskRows = tasks;
+      applyTaskFilters();
       const focus = tasks.find((t) => t.state === 'running') || tasks[0];
       if (focus) {
         $('tail-state').innerHTML = `<span class="h-2 w-2 rounded-full ${focus.state==='running'?'bg-status-active animate-ping':'bg-outline'}"></span>${focus.state==='running'?'Tailing':'Idle'}`;
