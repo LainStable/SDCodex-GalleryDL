@@ -52,7 +52,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
     <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
       <h2 class="font-display font-semibold">Stored Profiles</h2>
-      <button class="rounded-lg bg-badge-checkpoint px-3 py-1.5 font-mono text-[11px] font-semibold text-white flex items-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">add</span>Add Profile</button>
+      <button onclick="document.getElementById('cookie-text').focus()" class="rounded-lg bg-badge-checkpoint px-3 py-1.5 font-mono text-[11px] font-semibold text-white flex items-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">add</span>Add Profile</button>
     </div>
     <table class="w-full text-left font-mono text-xs">
       <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
@@ -68,20 +68,19 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">cookie</span><h2 class="font-display font-semibold">Import Cookie Jar</h2></div>
       <p class="font-mono text-[11px] text-outline">Paste a Netscape-format cookies.txt export — stored to <span class="text-secondary">/data/config/cookies-&lt;platform&gt;.txt</span>.</p>
-      <textarea rows="4" placeholder="# Netscape HTTP Cookie File&#10;.pixiv.net	TRUE	/	FALSE	…	PHPSESSID	…" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3 font-mono text-[11px] focus:outline-none focus:border-badge-checkpoint"></textarea>
+      <textarea id="cookie-text" rows="4" placeholder="Paste a Netscape cookies.txt export" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3 font-mono text-[11px] focus:outline-none focus:border-badge-checkpoint"></textarea>
       <div class="flex gap-2">
-        <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-[11px]"><option>Pixiv</option><option>Twitter/X</option><option>Reddit</option><option>DeviantArt</option></select>
-        <button class="flex-1 rounded-lg bg-badge-checkpoint py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save Cookie Jar</button>
+        <select id="cookie-platform" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-[11px]"><option value="pixiv">Pixiv</option><option value="reddit">Reddit</option><option value="deviantart">DeviantArt</option><option value="tumblr">Tumblr</option><option value="flickr">Flickr</option><option value="mastodon">Mastodon</option></select>
+        <button id="cookie-save" class="flex-1 rounded-lg bg-badge-checkpoint py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save Cookie Jar</button>
       </div>
+      <span id="cookie-message" class="font-mono text-[10px] text-outline"></span>
     </div>
     <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">vpn_key</span><h2 class="font-display font-semibold">OAuth Handshake Log</h2></div>
-      <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed flex flex-col gap-1">
-        <div class="text-outline">[14:32:01] <span class="text-primary">[oauth]</span> Session handshake valid for user @erinzombie</div>
-        <div class="text-outline">[13:58:44] <span class="text-status-warning">[oauth]</span> Pixiv cookie jar older than 20d — refresh advised</div>
-        <div class="text-outline">[13:12:09] <span class="text-status-alert">[oauth]</span> Twitter/X token rejected (401) — re-login required</div>
-        <div class="text-outline">[09:41:33] <span class="text-status-active">[oauth]</span> Civitai API key test passed (HTTP 200)</div>
-      </div>
+      <div class="flex gap-2"><select id="oauth-task" class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5 font-mono text-[11px]"></select><button id="oauth-start" class="rounded bg-badge-checkpoint px-3 py-1.5 text-xs">Start</button><button id="oauth-stop" class="rounded border border-status-alert/40 px-3 py-1.5 text-xs">Stop</button><button id="oauth-reset" class="rounded border border-outline-variant/40 px-3 py-1.5 text-xs">Reset</button></div>
+      <p class="font-mono text-[10px] text-outline">Start the selected task’s gallery-dl OAuth flow. Complete the browser step, then paste the returned callback URL/code here.</p>
+      <textarea id="oauth-callback" rows="2" placeholder="Callback URL or authorization code" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-2 font-mono text-[11px]"></textarea><button id="oauth-paste" class="self-start rounded border border-outline-variant/40 px-3 py-1.5 font-mono text-[10px]">Submit callback</button>
+      <pre id="oauth-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-48 overflow-auto text-outline">No OAuth run is active.</pre><span id="oauth-message" class="font-mono text-[10px] text-outline"></span>
     </div>
   </div>
 </div>
@@ -100,14 +99,25 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             <td class="py-3 px-5"><span class="rounded-[3px] border border-white/15 bg-white/5 px-2 py-0.5 font-semibold">${esc(p.platform)}</span></td>
             <td class="py-3 px-5 text-white">${esc(p.account)}</td>
             <td class="py-3 px-5 text-outline">${esc(p.method)}</td>
-            <td class="py-3 px-5 text-outline">—</td>
+            <td class="py-3 px-5 text-outline">${esc(p.status === 'valid' ? 'Seen recently' : 'Review')}</td>
             <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-white/10 px-2 py-0.5 text-[10px] font-bold ${TXT[p.status] || TXT.unknown}"><span class="h-1.5 w-1.5 rounded-full ${DOT[p.status] || DOT.unknown}"></span>${esc(p.status)}</span></td>
-            <td class="py-3 px-5"></td>
+            <td class="py-3 px-5 text-right"><button onclick="gdlCookieDelete('${esc(p.account)}')" class="text-status-alert">Delete</button></td>
           </tr>`).join('');
+      const sel=document.getElementById('oauth-task'), old=sel.value;
+      sel.innerHTML=(r.tasks||[]).map(t=>`<option value="${esc(t.slug)}">${esc(t.name)} · ${esc(t.site_label)}${t.authenticated?' · authenticated':''}</option>`).join('') || '<option value="">No tasks configured with OAuth</option>';
+      if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
     } catch (e) { /* retry */ }
   }
+  async function oauthApi(path, body){const r=await fetch('/gdl/api/oauth/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const d=await r.json();if(!r.ok)throw Error(d.error||r.status);return d;}
+  window.gdlCookieDelete=async f=>{if(!confirm('Delete cookie profile '+f+'?'))return;const r=await fetch('/gdl/api/oauth/cookies/'+encodeURIComponent(f),{method:'DELETE',credentials:'same-origin'});if(r.ok)void refresh()};
+  document.getElementById('cookie-save').onclick=async()=>{const msg=document.getElementById('cookie-message');try{await oauthApi('cookies',{platform:document.getElementById('cookie-platform').value,cookies:document.getElementById('cookie-text').value});msg.textContent='saved';document.getElementById('cookie-text').value='';void refresh()}catch(e){msg.textContent=e.message}};
+  document.getElementById('oauth-start').onclick=async()=>{try{await oauthApi('start',{task_slug:document.getElementById('oauth-task').value});document.getElementById('oauth-message').textContent='OAuth started';void poll()}catch(e){document.getElementById('oauth-message').textContent=e.message}};
+  document.getElementById('oauth-stop').onclick=async()=>{try{await oauthApi('stop');document.getElementById('oauth-message').textContent='stopped'}catch(e){document.getElementById('oauth-message').textContent=e.message}};
+  document.getElementById('oauth-reset').onclick=async()=>{try{await oauthApi('reset',{task_slug:document.getElementById('oauth-task').value});document.getElementById('oauth-message').textContent='reset'}catch(e){document.getElementById('oauth-message').textContent=e.message}};
+  document.getElementById('oauth-paste').onclick=async()=>{try{await oauthApi('paste',{value:document.getElementById('oauth-callback').value});document.getElementById('oauth-callback').value='';document.getElementById('oauth-message').textContent='callback sent'}catch(e){document.getElementById('oauth-message').textContent=e.message}};
+  async function poll(){try{const r=await fetch('/gdl/api/oauth/log',{credentials:'same-origin'});const d=await r.json();document.getElementById('oauth-log').textContent=d.content||'No OAuth output yet.'}catch(_){} }
   void refresh();
-  setInterval(refresh, 15000);
+  setInterval(()=>{void refresh();void poll()}, 5000);
 })();
 </script>
 <script>

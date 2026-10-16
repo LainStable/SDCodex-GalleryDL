@@ -59,6 +59,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <textarea id="conf-text" rows="16" spellcheck="false" class="w-full rounded-lg border border-outline-variant/40 bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-secondary focus:outline-none focus:border-badge-checkpoint"></textarea>
       <div class="flex items-center gap-2">
         <button id="conf-save" class="rounded-lg bg-badge-checkpoint px-4 py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save config</button>
+        <button id="conf-reset" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Reset defaults</button>
+        <button id="conf-check" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Check for options</button>
+        <button id="conf-merge" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Merge new options</button>
         <span id="conf-msg" class="font-mono text-[10px] text-ink-faint"></span>
       </div>
     </div>
@@ -66,10 +69,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     <div class="flex flex-col gap-6">
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">history</span><h2 class="font-display font-semibold">Backup &amp; Restore</h2></div>
-        <p class="font-mono text-[11px] text-outline">Task definitions only (urls, commands, statuses) — media stays on disk.</p>
+        <p class="font-mono text-[11px] text-outline">Select task folders to include. Kiosk settings and uploaded kiosk images are included by default; downloaded media is not.</p>
+        <div id="backup-tasks" class="max-h-32 overflow-auto rounded bg-[#070a10] p-2 font-mono text-[10px] text-outline">Loading tasks…</div>
+        <label class="flex items-center gap-2 font-mono text-[10px] text-outline"><input id="backup-config" type="checkbox" class="rounded accent-[#6366f1]"/>Include gallery-dl.conf and plugin settings</label>
         <div class="flex flex-wrap gap-2">
-          <a href="/gdl/api/backup" class="rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Download backup</a>
-          <label class="cursor-pointer rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Restore backup<input id="restore-file" type="file" accept=".tar.gz,.tgz" class="hidden"/></label>
+          <button id="backup-download" class="rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Download backup</button>
+          <label class="cursor-pointer rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Restore backup<input id="restore-file" type="file" accept=".zip,.tar.gz,.tgz" class="hidden"/></label>
         </div>
         <span id="restore-msg" class="font-mono text-[10px] text-ink-faint"></span>
       </div>
@@ -80,6 +85,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-outline">example cron.txt:<br/><span class="text-secondary">0 */6 * * *</span> <span class="text-ink-faint"># every 6 hours</span></div>
         <div id="sched-list" class="font-mono text-[11px] text-outline">loading…</div>
       </div>
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">speed</span><h2 class="font-display font-semibold">Task concurrency</h2></div><label class="font-mono text-[11px] text-outline">Maximum simultaneous task runs<input id="max-concurrent" type="number" min="1" max="64" value="5" class="ml-3 w-20 rounded border border-outline-variant/40 bg-surface-container-lowest px-2 py-1 text-white"/></label><button id="concurrent-save" class="self-start rounded-lg bg-badge-checkpoint px-4 py-2 font-mono text-[11px] text-white">Save limit</button><span id="concurrent-msg" class="font-mono text-[10px] text-outline"></span></div>
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">system_update</span><h2 class="font-display font-semibold">Downloader tools</h2></div><div id="tools-list" class="font-mono text-[11px] text-outline">Checking installed versions…</div></div>
     </div>
   </div>
 </div>
@@ -95,8 +102,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     } catch (e) { $('conf-msg').textContent = 'load failed'; }
     try {
       const t = await (await fetch('/gdl/api/tasks', { credentials: 'same-origin' })).json();
-      const tasks = (t.tasks || []).map((x) => `<div>${esc(x.name)} <span class="text-ink-faint">· ${esc(x.state)}</span></div>`).join('');
+      const tasks = (t.tasks || []).map((x) => `<div>${esc(x.name)} <span class="text-ink-faint">· ${x.schedule ? `${esc(x.schedule)} · next ${esc(x.next_run||'pending')}` : 'manual'} · ${esc(x.state)}</span></div>`).join('');
       $('sched-list').innerHTML = tasks || 'no tasks yet';
+      $('backup-tasks').innerHTML = (t.tasks||[]).map(x=>`<label class="flex items-center gap-2 py-1"><input type="checkbox" class="backup-task rounded accent-[#6366f1]" value="${esc(x.slug)}" checked/>${esc(x.name)}</label>`).join('') || 'No tasks to include.';
     } catch (e) { $('sched-list').textContent = 'load failed'; }
   }
   $('conf-save').addEventListener('click', async () => {
@@ -107,6 +115,14 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       $('conf-msg').textContent = j.ok ? 'saved' : ('error: ' + (j.error || r.status));
     } catch (e) { $('conf-msg').textContent = 'save failed'; }
   });
+  async function post(url, body) { const r=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const j=await r.json();if(!r.ok)throw Error(j.error||r.status);return j; }
+  $('conf-reset').onclick=async()=>{if(!confirm('Replace the current config with gallery-dl defaults?'))return;try{const j=await post('/gdl/api/config/reset');$('conf-text').value=j.content||'';$('conf-msg').textContent='defaults loaded'}catch(e){$('conf-msg').textContent=e.message}};
+  $('conf-check').onclick=async()=>{try{const j=await (await fetch('/gdl/api/config/check-update',{credentials:'same-origin'})).json();$('conf-msg').textContent=j.total?`${j.total} new options available`:(j.error||'No new options found')}catch(e){$('conf-msg').textContent='check failed'}};
+  $('conf-merge').onclick=async()=>{try{const j=await post('/gdl/api/config/apply-update');$('conf-msg').textContent=j.error||'New options merged; review and save config';if(j.content)$('conf-text').value=j.content}catch(e){$('conf-msg').textContent=e.message}};
+  async function tools(){try{const d=await(await fetch('/gdl/api/tools/check-update',{credentials:'same-origin'})).json();$('tools-list').innerHTML=Object.entries(d).map(([k,v])=>`<div class="flex items-center justify-between gap-3 border-b border-outline-variant/20 py-2"><span>${esc(k)} · ${esc(v.current||'missing')} → ${esc(v.latest||'unknown')}</span><button onclick="gdlToolUpdate('${k}')" class="rounded border border-outline-variant/40 px-2 py-1">Update</button></div>`).join('')}catch(_){$('tools-list').textContent='Could not check package versions.'}}
+  window.gdlToolUpdate=async tool=>{if(!confirm(`Update ${tool}? Running downloads may be affected.`))return;try{let r=await fetch('/gdl/api/tools/update',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool})}),d=await r.json();if(r.status===409&&d.warning&&confirm(`These tasks are running: ${(d.running||[]).join(', ')}. Continue the update?`)){r=await fetch('/gdl/api/tools/update',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool,force:true})});d=await r.json()}if(!r.ok)throw Error(d.error||r.status);alert(`Updated to ${d.new_version}`);void tools()}catch(e){alert(e.message)}};
+  $('concurrent-save').onclick=async()=>{try{const r=await fetch('/gdl/api/settings',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_concurrent:$('max-concurrent').value})});const d=await r.json();$('concurrent-msg').textContent=d.ok?'saved':d.error}catch(e){$('concurrent-msg').textContent='save failed'}};
+  void fetch('/gdl/api/settings',{credentials:'same-origin'}).then(r=>r.json()).then(d=>$('max-concurrent').value=d.max_concurrent||5).catch(()=>{}); void tools();
   $('restore-file').addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -116,10 +132,11 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       fd.append('file', f);
       const r = await fetch('/gdl/api/restore', { method: 'POST', credentials: 'same-origin', body: fd });
       const j = await r.json();
-      $('restore-msg').textContent = j.ok ? `restored ${j.restored}, skipped ${j.skipped}` : ('error: ' + (j.error || r.status));
+      $('restore-msg').textContent = j.ok ? 'restored ' + j.restored + ' tasks' + (j.kiosks ? ', ' + j.kiosks + ' kiosks' : '') + (j.config ? ', settings' : '') + ', skipped ' + j.skipped : ('error: ' + (j.error || r.status));
     } catch (err) { $('restore-msg').textContent = 'restore failed'; }
     e.target.value = '';
   });
+  $('backup-download').onclick=async()=>{const slugs=[...document.querySelectorAll('.backup-task:checked')].map(x=>x.value);try{const r=await fetch('/gdl/api/backup/create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({slugs,include_config:$('backup-config').checked,include_kiosks:true})});if(!r.ok)throw Error((await r.json()).error||r.status);const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='gallerydl-backup.zip';a.click();URL.revokeObjectURL(url);$('restore-msg').textContent='backup downloaded'}catch(e){$('restore-msg').textContent=e.message}};
   void load();
 })();
 </script>

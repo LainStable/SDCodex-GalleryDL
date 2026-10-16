@@ -53,31 +53,34 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <p class="mt-1 font-mono text-[11px] text-outline">Every scrape, verify, skip and rate-limit event — retained per task in <span class="text-secondary">/data/tasks</span>.</p>
     </div>
     <div class="flex items-center gap-2 font-mono text-[11px]">
-      <select class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option>All levels</option><option>Errors only</option><option>Warnings+</option></select>
+      <select id="log-level" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option value="all">All levels</option><option value="error">Errors only</option><option value="warning">Warnings+</option></select>
       <select id="log-task" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"></select>
-      <button class="rounded-lg border border-outline-variant/40 px-3 py-1.5 flex items-center gap-1.5 hover:border-badge-sdxl/60"><span class="material-symbols-outlined text-sm">output</span>Export</button>
+      <a id="log-export" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 flex items-center gap-1.5 hover:border-badge-sdxl/60"><span class="material-symbols-outlined text-sm">output</span>Export task log</a>
     </div>
   </section>
 
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Items today</div><div class="font-display text-2xl font-bold">1,204</div></div>
-    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Bytes ingested</div><div class="font-display text-2xl font-bold">3.6 GB</div></div>
-    <div class="rounded-xl border border-status-warning/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-warning">Skipped / filtered</div><div class="font-display text-2xl font-bold">47</div></div>
-    <div class="rounded-xl border border-status-alert/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-alert">Errors</div><div class="font-display text-2xl font-bold">3</div></div>
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Items today</div><div id="stat-items" class="font-display text-2xl font-bold">—</div></div>
+    <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-outline">Bytes ingested today</div><div id="stat-bytes" class="font-display text-2xl font-bold">—</div></div>
+    <div class="rounded-xl border border-status-warning/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-warning">Skipped / filtered</div><div id="stat-filtered" class="font-display text-2xl font-bold">—</div></div>
+    <div class="rounded-xl border border-status-alert/30 bg-surface-container-low p-4"><div class="font-mono text-[10px] uppercase text-status-alert">Errors</div><div id="stat-errors" class="font-display text-2xl font-bold">—</div></div>
   </div>
 
   <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
     <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
       <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
       <div class="flex items-center gap-2 font-mono text-[10px] text-outline">
-        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</span>
-        <button class="p-1 hover:text-white"><span class="material-symbols-outlined text-xs">content_copy</span></button>
+        <span id="tail-indicator" class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</span>
+        <select id="log-archive" class="rounded border border-outline-variant/30 bg-surface-container-lowest px-2 py-1"><option value="">Archived logs</option></select>
+        <button id="log-clear" class="p-1 hover:text-status-alert" title="Clear logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>
+        <button id="log-copy" class="p-1 hover:text-white" title="Copy visible log"><span class="material-symbols-outlined text-xs">content_copy</span></button>
       </div>
     </div>
     <div id="log-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[420px] scroll-thin flex flex-col gap-1">
       <div class="text-outline">loading…</div>
     </div>
   </div>
+  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden"><div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 font-display font-semibold">Run history</div><div id="run-history" class="divide-y divide-outline-variant/20 font-mono text-[11px] text-outline"><div class="p-4">Select a task to view its runs.</div></div></div>
 </div>
 <script>
 (function () {
@@ -91,22 +94,34 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       const cur = sel.value;
       sel.innerHTML = (tj.tasks || []).map((t) => `<option value="${t.slug}">${esc(t.name)} (${esc(t.state)})</option>`).join('')
         || '<option value="">no tasks yet</option>';
-      if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
+      const wanted = new URLSearchParams(location.search).get('task') || cur;
+      if (wanted && [...sel.options].some((o) => o.value === wanted)) sel.value = wanted;
     } catch (e) { /* retry */ }
   }
   async function tail() {
     const slug = $('log-task').value;
+    $('log-export').href = slug ? `/gdl/api/tasks/${encodeURIComponent(slug)}/logs/download` : '#';
     if (!slug) { $('log-box').innerHTML = '<div class="text-outline">no tasks yet.</div>'; return; }
     try {
+      const rh=await jget(`/gdl/api/tasks/${slug}/history`); $('run-history').innerHTML=(rh.runs||[]).map(x=>`<div class="flex flex-wrap justify-between gap-2 p-3"><span>${esc(x.ts||'')}</span><span class="${x.success?'text-status-active':'text-status-alert'}">${x.success?'Success':'Failed'} · exit ${esc(x.exit)}</span><span>${esc(x.duration)} sec</span></div>`).join('')||'<div class="p-4">No runs recorded.</div>';
+      const archives=await jget(`/gdl/api/tasks/${slug}/logs/archived`); $('log-archive').innerHTML='<option value="">Archived logs</option>'+(archives.files||[]).map(f=>`<option value="${encodeURIComponent(f.name)}">${esc(f.name)}</option>`).join('');
       const lj = await jget(`/gdl/api/tasks/${slug}/log?lines=200`);
-      $('log-box').innerHTML = (lj.lines || []).slice(-120).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
+      const level = $('log-level').value;
+      const lines = (lj.lines || []).slice(-120).filter(l => level === 'all' || (level === 'error' ? /error|failed|exception/i.test(l) : /warn|skip|filtered/i.test(l)));
+      $('log-box').innerHTML = lines.map((l) => `<div class="${/error|failed|exception/i.test(l) ? 'text-status-alert' : /warn|skip|filtered/i.test(l) ? 'text-status-warning' : 'text-outline'}">${esc(l)}</div>`).join('')
         + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(slug) + '</span></div>';
       $('log-box').scrollTop = $('log-box').scrollHeight;
+      const active = (await jget('/gdl/api/tasks')).tasks.find(t=>t.slug===slug)?.state==='running'; $('tail-indicator').innerHTML=`<span class="h-2 w-2 rounded-full ${active?'bg-status-active animate-ping':'bg-outline'}"></span>${active?'Tailing':'Idle'}`;
     } catch (e) { /* retry */ }
   }
   $('log-task').addEventListener('change', tail);
-  void loadTasks().then(tail);
-  setInterval(async () => { await loadTasks(); await tail(); }, 5000);
+  $('log-level').addEventListener('change', tail);
+  $('log-archive').addEventListener('change',()=>{const slug=$('log-task').value,fn=$('log-archive').value;if(slug&&fn)location.href=`/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archive/${fn}`});
+  $('log-clear').onclick=async()=>{const slug=$('log-task').value;if(!slug||!confirm('Clear this task log?'))return;await fetch(`/gdl/api/tasks/${encodeURIComponent(slug)}/action`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear_logs'})});void tail()};
+  $('log-copy').onclick=()=>navigator.clipboard?.writeText($('log-box').innerText).catch(()=>{});
+  async function stats() { try { const t = await jget('/gdl/api/telemetry'); $('stat-items').textContent = Number(t.items_today||0).toLocaleString(); $('stat-bytes').textContent = (Number(t.bytes_today||0)/1e9).toFixed(2)+' GB'; $('stat-filtered').textContent = Number(t.filtered||0).toLocaleString(); $('stat-errors').textContent = Number(t.errors||0).toLocaleString(); } catch (_) {} }
+  void loadTasks().then(tail); void stats();
+  setInterval(async () => { await loadTasks(); await tail(); await stats(); }, 5000);
 })();
 </script>
 <script>

@@ -59,14 +59,14 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <h1 class="font-display text-2xl font-bold tracking-tight truncate">Batch Scraper &amp; Media Kiosk</h1>
       <div class="flex items-center gap-2 flex-wrap font-mono text-[11px]">
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
-          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> gallery-dl <span id="eng-gdl" class="text-secondary font-semibold">…</span>
+          <span id="eng-gdl-dot" class="h-1.5 w-1.5 rounded-full bg-outline"></span> gallery-dl <span id="eng-gdl" class="text-secondary font-semibold">…</span>
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
-          <span class="h-1.5 w-1.5 rounded-full bg-status-active"></span> yt-dlp <span id="eng-ytdlp" class="text-badge-sdxl font-semibold">…</span>
+          <span id="eng-ytdlp-dot" class="h-1.5 w-1.5 rounded-full bg-outline"></span> yt-dlp <span id="eng-ytdlp" class="text-badge-sdxl font-semibold">…</span>
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
           <span class="material-symbols-outlined text-xs text-status-warning">speed</span>
-          <span class="text-outline">Max Concurrent:</span> <span id="max-concurrent" class="font-semibold">5</span>
+          <span class="text-outline">Max Concurrent:</span> <span id="max-concurrent" class="font-semibold">…</span>
         </span>
       </div>
     </div>
@@ -123,7 +123,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <div class="flex flex-col gap-1">
             <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cUrls">Target URLs <span class="text-outline font-normal">(one per line, max 100)</span></label>
             <textarea id="cUrls" name="urls" rows="6" placeholder="https://example.com/feed&#10;https://reddit.com/r/…"
-              required class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
+              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
             <div class="flex items-center gap-2">
               <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[10px] cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
                 <input type="file" id="cUrlsFile" name="urls_file" accept=".txt,.csv" class="hidden" onchange="document.getElementById('cUrlsFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload .txt file'; document.getElementById('cUrlsFileNote').textContent = this.files && this.files[0] ? '' : 'No limit on file uploads.';"/>
@@ -139,7 +139,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
               class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors" value="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf"/>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div class="flex flex-col gap-1">
               <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cOauth">OAuth / Cookie Profile</label>
               <select id="cOauth" name="oauth_site" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors">
@@ -152,6 +152,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
                 <option value="pixiv">Pixiv (requires stdin code flow)</option>
               </select>
             </div>
+            <div class="flex flex-col gap-1"><label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cTimeout">Timeout (seconds)</label><input id="cTimeout" name="timeout" type="number" min="0" placeholder="0 = no limit" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs"/></div>
             <div class="flex flex-col gap-1">
               <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cCookie">Cookie File (--cookies)</label>
               <input id="cCookie" name="cookie_file" type="text" placeholder="cookies-reddit.txt"
@@ -208,9 +209,9 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div class="col-span-1 xl:col-span-4 min-w-0 flex flex-col gap-6">
         <!-- Terminal -->
         <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-          <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+            <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
             <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
-            <div class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-status-active animate-ping"></span>Tail -f</div>
+            <div id="tail-state" class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</div>
           </div>
           <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
             <div class="text-outline">pipeline idle — no tasks yet.</div>
@@ -220,19 +221,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
-            <span class="font-mono text-[11px] font-bold text-status-warning">NVMe RAID 0</span>
+            <span id="tele-device" class="font-mono text-[11px] font-bold text-outline">Filesystem</span>
           </div>
           <div class="flex justify-between font-mono text-[11px]"><span id="tele-dir">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
           <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
-            <div class="bg-badge-checkpoint h-full" style="width:14%"></div>
-            <div class="bg-badge-sdxl h-full" style="width:5%"></div>
-            <div class="bg-badge-lora h-full" style="width:1.6%"></div>
+            <div id="tele-bar" class="bg-badge-checkpoint h-full" style="width:0%"></div>
           </div>
           <div class="flex items-center justify-between font-mono text-[10px] text-outline">
             <span id="tele-images">…</span><span id="tele-tasks">…</span>
           </div>
           <div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px]">
-            <span class="text-outline">Estimated free capacity:</span><span class="text-status-active font-semibold">1,588 GB (~380k items)</span>
+            <span class="text-outline">Free capacity:</span><span id="tele-free" class="text-status-active font-semibold">—</span>
           </div>
         </div>
       </div>
@@ -244,43 +243,11 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">photo_library</span>
         <h2 class="font-display font-semibold">Recent Scraped Media Filmstrip</h2>
-        <span class="font-mono text-[11px] text-outline">(/mnt/storage/raw_datasets/incoming)</span></div>
+        <span id="media-dir" class="font-mono text-[11px] text-outline">Downloads</span></div>
       <span class="font-mono text-[11px] text-outline">Sort: Ingest Time (Newest)</span>
     </div>
     <div id="film-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
-        <div class="relative h-44 bg-gradient-to-br from-badge-checkpoint/40 via-surface-container-high to-badge-sdxl/30 flex items-center justify-center">
-          <span class="material-symbols-outlined text-4xl text-white/20">image</span>
-          <span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-secondary border border-secondary/30">4K · PNG</span>
-        </div>
-        <div class="p-3 flex flex-col gap-1">
-          <span class="text-sm font-medium truncate">cyber_valkyrie_mk4_082.png</span>
-          <div class="flex justify-between font-mono text-[11px] text-outline"><span>3840×2160</span><span>12.4 MB</span></div>
-          <div class="flex gap-1 flex-wrap"><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#cyberpunk</span><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#neon</span></div>
-        </div>
-      </div>
-      <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
-        <div class="relative h-44 bg-gradient-to-br from-badge-sdxl/30 via-surface-container-high to-badge-lora/30 flex items-center justify-center">
-          <span class="material-symbols-outlined text-4xl text-white/20">landscape</span>
-          <span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-badge-sdxl border border-badge-sdxl/30">1080p · WEBP</span>
-        </div>
-        <div class="p-3 flex flex-col gap-1">
-          <span class="text-sm font-medium truncate">orbital_outpost_sector7_v1.webp</span>
-          <div class="flex justify-between font-mono text-[11px] text-outline"><span>1920×1080</span><span>3.2 MB</span></div>
-          <div class="flex gap-1 flex-wrap"><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#scifi</span><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#environment</span></div>
-        </div>
-      </div>
-      <div class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
-        <div class="relative h-44 bg-gradient-to-br from-badge-lora/30 via-surface-container-high to-badge-flux/30 flex items-center justify-center">
-          <span class="material-symbols-outlined text-4xl text-white/20">smart_toy</span>
-          <span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-secondary border border-secondary/30">4K · JPG</span>
-        </div>
-        <div class="p-3 flex flex-col gap-1">
-          <span class="text-sm font-medium truncate">bionic_portrait_study_04.jpg</span>
-          <div class="flex justify-between font-mono text-[11px] text-outline"><span>4096×4096</span><span>8.9 MB</span></div>
-          <div class="flex gap-1 flex-wrap"><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#android</span><span class="rounded-[3px] bg-surface-container px-1 font-mono text-[9px]">#hard_surface</span></div>
-        </div>
-      </div>
+      <div class="text-outline font-mono text-xs">Loading recent media…</div>
     </div>
   </div>
 </div>
@@ -295,6 +262,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     done: ['Finished', 'border-status-active/30 bg-status-active/10 text-status-active', false],
     idle: ['Queued', 'border-white/15 bg-white/5 text-on-surface-variant', false],
     stopped: ['Stopped', 'border-outline-variant/40 bg-white/5 text-outline', false],
+    paused: ['Paused', 'border-status-warning/40 bg-status-warning/10 text-status-warning', false],
     error: ['Error', 'border-status-alert/40 bg-status-alert/10 text-status-alert', false],
   };
   async function jget(url) {
@@ -304,20 +272,18 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   }
   async function act(slug, action) {
     const method = action === 'delete' ? 'DELETE' : 'POST';
-    const url = action === 'delete' ? `/gdl/api/tasks/${slug}` : `/gdl/api/tasks/${slug}/${action}`;
-    await fetch(url, { method, credentials: 'same-origin' });
+    const bulk = !slug;
+    const routeAction = !['start','stop'].includes(action);
+    const url = action === 'delete' ? `/gdl/api/tasks/${slug}` : bulk ? '/gdl/api/tasks/actions' : routeAction ? `/gdl/api/tasks/${slug}/action` : `/gdl/api/tasks/${slug}/${action}`;
+    await fetch(url, { method, credentials: 'same-origin', ...((bulk || routeAction) ? {headers:{'Content-Type':'application/json'},body:JSON.stringify({action})} : {}) });
     void refresh();
   }
   window.gdlAct = act;
 
-  // Create new batch scraping job -> scroll to the form at top of page
-  document.getElementById('new-task-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  document.getElementById('cName').focus();
-
   async function createTask() {
     const form = document.getElementById('fCreate');
-    const btn = document.getElementById('new-batch-btn');
-    btn.textContent = 'Creating…'; btn.disabled = true;
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
     const fd = new FormData(form);
     const urlsText = fd.get('urls') || '';
     const urlLines = urlsText.split(/\r?\n/).map(l => l.trim()).filter(l => l);
@@ -329,32 +295,34 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       schedule: fd.get('schedule_mode') === 'cron' ? (fd.get('schedule') || '').trim() || '' : '',
       oauth_site: fd.get('oauth_site') || '',
       cookie_path: fd.get('cookie_file') || '',
+      original_slug: fd.get('original_slug') || '',
+      timeout: fd.get('timeout') || '',
     };
-    if (!payload.name || payload.urls.length === 0) {
+    const upload = fd.get('urls_file');
+    if (!payload.name || (!payload.urls.length && !(upload && upload.size))) {
       alert('Task name and at least one URL are required.');
-      btn.textContent = 'Create Task'; btn.disabled = false;
+      btn.disabled = false;
       return;
     }
     try {
-      const r = await fetch('/gdl/api/tasks', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const body = new FormData();
+      Object.entries(payload).forEach(([k,v]) => body.append(k, Array.isArray(v) ? v.join('\n') : String(v ?? '')));
+      if (upload && upload.size) body.set('urls_file', upload);
+      const r = await fetch('/gdl/api/tasks', { method: 'POST', credentials: 'same-origin', body });
       const d = await r.json();
       if (!r.ok || d.error) {
         alert('Error: ' + (d.error || r.status));
       } else {
         // Success: refresh list + show the task
         await refresh();
+        form.reset(); $('originalSlug').value = ''; $('cModeManual').checked = true; $('cSched').disabled = true; $('cSched').value = ''; form.querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">add_circle</span> Create Task';
         // Scroll to the table
         document.querySelector('.gdl-page > div.grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     } catch (e) {
       alert('Request failed: ' + (e.message || e));
     } finally {
-      btn.textContent = 'Create Task'; btn.disabled = false;
+      btn.disabled = false;
     }
   }
   window.createTask = createTask;
@@ -362,13 +330,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   function row(t) {
     const [label, cls, live] = STATE[t.state] || STATE.idle;
     const pct = t.progress;
-    const scheduleDisplay = t.schedule ? '<span class="rounded-[3px] border border-outline-variant/20 bg-surface-container px-1.5 font-mono text-[9px] text-secondary">' + esc(t.schedule) + '</span>' : '<span class="text-outline/40">— manual —</span>';
+    const scheduleDisplay = t.schedule ? '<span class="rounded-[3px] border border-outline-variant/20 bg-surface-container px-1.5 font-mono text-[9px] text-secondary">' + esc(t.schedule) + '</span><span class="mt-1 block text-[9px] text-outline">Next: ' + esc(t.next_run ? new Date(t.next_run).toLocaleString() : 'pending') + '</span>' : '<span class="text-outline/40">— manual —</span>';
     const bar = pct != null
       ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
       : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 bg-secondary animate-pulse rounded-full"></div>' : ''}</div>`;
-    const btns = t.state === 'running'
+    const btns = (t.state === 'running'
       ? `<button onclick="gdlAct('${t.slug}','stop')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop"><span class="material-symbols-outlined text-xs">stop</span></button>`
-      : `<button onclick="gdlAct('${t.slug}','start')" class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Start"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`;
+      : `<button onclick="gdlAct('${t.slug}','start')" class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Run now"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`) +
+      `<button onclick="gdlAct('${t.slug}','pause')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Pause or resume"><span class="material-symbols-outlined text-xs">pause_circle</span></button><button onclick="gdlAct('${t.slug}','clear_logs')" class="p-1 rounded hover:bg-surface-container" title="Clear task logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>` +
+      (t.has_archive ? `<button onclick="gdlAct('${t.slug}','delete_archive')" class="p-1 rounded hover:bg-surface-container" title="Remove download archive"><span class="material-symbols-outlined text-xs">database</span></button>` : '') +
+      (t.has_cookies ? `<button onclick="gdlAct('${t.slug}','delete_cookies')" class="p-1 rounded hover:bg-surface-container" title="Remove task cookies"><span class="material-symbols-outlined text-xs">cookie</span></button>` : '') +
+      `<button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="${location.pathname.replace(/tasks(?:\.html)?$/, 'logs')}?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
     return `<tr class="hover:bg-slate-surface/30 transition-colors">
       <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
       <td class="py-3 px-5">${scheduleDisplay}</td>
@@ -379,6 +351,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">${btns}<button onclick="if(!confirm('Delete this task and its folder?'))return;gdlAct('${t.slug}','delete')" class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Delete"><span class="material-symbols-outlined text-xs">delete_forever</span></button></div></td>
     </tr>`;
   }
+  window.editTask = async (slug) => {
+    const [t, urls] = await Promise.all([jget('/gdl/api/tasks').then(x => x.tasks.find(y => y.slug === slug)), jget(`/gdl/api/tasks/${slug}/urls`)]);
+    if (!t) return;
+    $('originalSlug').value = slug; $('cName').value = t.name || slug; $('cUrls').value = urls.content || ''; $('cConfig').value = t.command || '';
+    $('cCookie').value = t.cookie_path || ''; $('cOauth').value = t.oauth_site || ''; $('cTimeout').value = t.timeout || '';
+    $('cSched').disabled = !t.schedule; $('cSched').value = t.schedule || '';
+    $('cModeCron').checked = !!t.schedule; $('cModeManual').checked = !t.schedule;
+    $('cStart').checked = false;
+    $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
+    $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
+  };
   async function refresh() {
     try {
       const [eng, tj, tele] = await Promise.all([
@@ -387,9 +370,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         jget('/gdl/api/telemetry').catch(() => null),
       ]);
       if (eng) {
-        $('eng-gdl').textContent = (eng.gallery_dl || 'missing') + ' active';
-        $('eng-ytdlp').textContent = (eng.yt_dlp || 'missing') + ' engine ready';
+        $('eng-gdl').textContent = 'gallery-dl ' + (eng.gallery_dl || 'missing');
+        $('eng-ytdlp').textContent = 'yt-dlp ' + (eng.yt_dlp || 'missing');
+        $('eng-gdl-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.gallery_dl && !['missing','not found'].includes(eng.gallery_dl) ? 'bg-status-active' : 'bg-status-alert');
+        $('eng-ytdlp-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.yt_dlp && !['missing','not found'].includes(eng.yt_dlp) ? 'bg-status-active' : 'bg-status-alert');
       }
+      const q = await jget('/gdl/api/queue').catch(() => null); if(q) $('max-concurrent').textContent=q.max_concurrent;
       const tasks = (tj && tj.tasks) || [];
       const active = tasks.filter((t) => t.state === 'running').length;
       $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
@@ -398,6 +384,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         : tasks.map(row).join('');
       const focus = tasks.find((t) => t.state === 'running') || tasks[0];
       if (focus) {
+        $('tail-state').innerHTML = `<span class="h-2 w-2 rounded-full ${focus.state==='running'?'bg-status-active animate-ping':'bg-outline'}"></span>${focus.state==='running'?'Tailing':'Idle'}`;
         const lj = await jget(`/gdl/api/tasks/${focus.slug}/log?lines=40`).catch(() => null);
         if (lj && lj.lines) {
           $('term-box').innerHTML = lj.lines.slice(-24).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
@@ -407,13 +394,25 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           $('term-box').innerHTML = '<div class="text-outline">tail -f ' + esc(focus.slug) + ' (log loading)</div>';
         }
       } else {
+        $('tail-state').innerHTML = '<span class="h-2 w-2 rounded-full bg-outline"></span>Waiting';
         $('term-box').innerHTML = '<div class="text-outline">pipeline idle — no tasks yet.</div>';
       }
       if (tele) {
         $('tele-dir').textContent = tele.images_dir || '';
-        $('tele-used').textContent = tele.images_gb + ' GB images';
-        $('tele-images').textContent = `Images (${tele.images_gb} GB)`;
-        $('tele-tasks').textContent = `Tasks (${tele.tasks_gb} GB)`;
+        $('tele-used').textContent = `${tele.images_gb} GB used`;
+        $('tele-images').textContent = `${tele.items_today} items today`;
+        $('tele-tasks').textContent = `${tasks.length} tasks`;
+        $('tele-free').textContent = `${(tele.disk_free / 1e9).toFixed(1)} GB (${(tele.disk_total / 1e9).toFixed(1)} GB total)`;
+        $('tele-bar').style.width = `${Math.min(100, Number(tele.disk_pct || 0))}%`;
+      }
+      const mj = await jget('/gdl/api/media/recent').catch(() => null);
+      if (mj) {
+        $('media-dir').textContent = mj.dir || 'Downloads';
+        $('film-grid').innerHTML = mj.media.length ? mj.media.map(m => {
+          const url = '/gdl/api/media/file?path=' + encodeURIComponent(m.rel);
+          const video = /\.(mp4|webm|mov|m4v)$/i.test(m.name);
+          return `<a href="${url}" target="_blank" class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden block"><div class="relative h-44 bg-surface-container-high flex items-center justify-center">${video ? `<video src="${url}" muted class="h-full w-full object-cover"></video>` : `<img src="${url}" loading="lazy" class="h-full w-full object-cover" alt="">`}<span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary">${esc(m.name.split('.').pop().toUpperCase())}</span></div><div class="p-3"><span class="text-sm font-medium truncate block">${esc(m.name)}</span><span class="font-mono text-[11px] text-outline">${fmtMB(m.size)} · ${new Date(m.mtime*1000).toLocaleString()}</span></div></a>`;
+        }).join('') : '<div class="text-outline font-mono text-xs">No downloaded media found yet.</div>';
       }
     } catch (e) { /* backend waking up */ }
   }

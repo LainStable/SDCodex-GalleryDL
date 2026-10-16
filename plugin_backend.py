@@ -5,18 +5,27 @@ working: <TASKS>/<slug>/{urls.txt, command.txt, status.json, stdout.log}.
 """
 
 import json
+import io
+import mimetypes
 import os
 import re
 import shutil
 import signal
+import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import uuid
+import zipfile
 from datetime import datetime, timezone
 import shlex
+from pathlib import Path
+from urllib import request as urlrequest
+from urllib import error as urlerror
+import http.client
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, send_file, send_from_directory
 
 gdl_api = Blueprint("gdl_api", __name__, url_prefix="/gdl/api")
 
@@ -24,11 +33,37 @@ _procs: dict = {}          # slug -> Popen (task runs)
 _quick: dict = {}          # job_id -> {state, log file, proc, ...}
 _lock = threading.Lock()
 _scheduler = None
+_settings_loaded = False
+_slots = threading.BoundedSemaphore(max(1, int(os.environ.get("TASK_CONCURRENT_MAX", "5") or "5")))
+_max_concurrent = max(1, int(os.environ.get("TASK_CONCURRENT_MAX", "5") or "5"))
+_queued_runs = 0
+_paused_tasks: set[str] = set()
+_one_time_proc = None
+_one_time_lock = threading.Lock()
+_oauth_proc = None
+_oauth_task = ""
+_oauth_site = ""
+_oauth_lock = threading.Lock()
+_OAUTH_SITES = {"deviantart": "DeviantArt", "reddit": "Reddit", "tumblr": "Tumblr", "flickr": "Flickr", "mastodon": "Mastodon", "pixiv": "Pixiv"}
+_OAUTH_STDIN_SITES = {"pixiv"}
+_MEDIA_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm", ".mkv"}
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+_DEFAULT_CONFIG_URL = os.environ.get("GALLERYDL_DEFAULT_CONFIG_URL", "https://raw.githubusercontent.com/mikf/gallery-dl/master/docs/gallery-dl.conf")
+_DEFAULT_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "defaults", "gallery-dl.conf")
+_TOOL_CACHE: dict[str, str] = {}
 
 
 def _init_scheduler():
     """Start cron jobs declared by task folders, preserving the task layout."""
-    global _scheduler
+    global _scheduler, _settings_loaded, _slots, _max_concurrent
+    if not _settings_loaded:
+        try:
+            saved = int(_read_file_strip(os.path.join(config_dir(), "task_concurrent_max.txt")) or _max_concurrent)
+            _max_concurrent = max(1, min(64, saved))
+            _slots = threading.BoundedSemaphore(_max_concurrent)
+        except (TypeError, ValueError, OSError):
+            pass
+        _settings_loaded = True
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         from apscheduler.triggers.cron import CronTrigger
@@ -114,6 +149,85 @@ def _slug(name: str) -> str:
     return s or f"task-{int(time.time())}"
 
 
+def _valid_slug(value: str) -> bool:
+    return bool(value and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,119}", value))
+
+
+def _task_base(slug: str):
+    if not _valid_slug(slug):
+        return None
+    root = os.path.realpath(tasks_dir())
+    base = os.path.realpath(os.path.join(root, slug))
+    return base if os.path.commonpath((root, base)) == root else None
+
+
+def _save_task(data, slug: str | None = None):
+    name = str(data.get("name") or "").strip()
+    if not name:
+        raise ValueError("task name required")
+    old_slug = str(data.get("original_slug") or slug or "").strip()
+    target_slug = _slug(name)
+    if old_slug and old_slug != target_slug:
+        old_base = _task_base(old_slug)
+        new_base = _task_base(target_slug)
+        if not old_base or not os.path.isdir(old_base):
+            raise FileNotFoundError("unknown task")
+        if os.path.exists(new_base):
+            raise FileExistsError("a task with that name already exists")
+        os.rename(old_base, new_base)
+        _set_schedule(old_slug, "")
+    else:
+        new_base = _task_base(target_slug)
+        if new_base is None:
+            raise ValueError("invalid task name")
+        if not os.path.isdir(new_base):
+            os.makedirs(new_base, exist_ok=False)
+        elif not old_slug:
+            raise FileExistsError("a task with that name already exists")
+    urls = data.get("urls") or []
+    if isinstance(urls, str):
+        urls = urls.splitlines()
+    urls = [str(u).strip() for u in urls if str(u).strip()]
+    if not urls and not data.get("keep_existing_urls"):
+        existing = _read_file_strip(os.path.join(new_base, "urls.txt"))
+        if not existing:
+            raise ValueError("at least one URL required")
+    elif urls:
+        with open(os.path.join(new_base, "urls.txt"), "w", encoding="utf-8") as f:
+            f.write("\n".join(urls) + "\n")
+    command = str(data.get("command") or "").strip() or f"gallery-dl --input-file urls.txt --config {os.path.join(config_dir(), 'gallery-dl.conf')} --destination {downloads_dir()}"
+    try:
+        shlex.split(command)
+    except ValueError as e:
+        raise ValueError(f"invalid command: {e}")
+    for filename, value in (("name.txt", name), ("command.txt", command), ("oauth_site.txt", str(data.get("oauth_site") or "").strip())):
+        path = os.path.join(new_base, filename)
+        if value:
+            Path(path).write_text(value + "\n", encoding="utf-8")
+        elif os.path.exists(path):
+            os.remove(path)
+    st = _read_json(os.path.join(new_base, "status.json"), {})
+    st.update({"name": name, "command": command})
+    _write_json(os.path.join(new_base, "status.json"), st)
+    schedule = str(data.get("schedule") or "").strip()
+    _set_schedule(target_slug, schedule)
+    if "timeout" in data:
+        timeout = str(data.get("timeout") or "").strip()
+        if timeout and not timeout.isdigit(): raise ValueError("timeout must be seconds")
+        timeout_path = os.path.join(new_base, "timeout.txt")
+        if timeout: Path(timeout_path).write_text(timeout + "\n", encoding="utf-8")
+        elif os.path.exists(timeout_path): os.remove(timeout_path)
+    cookie = data.get("cookie_file") or data.get("cookie_path")
+    if cookie:
+        # Existing cookie profile paths are constrained to the plugin config directory.
+        candidate = os.path.realpath(os.path.join(config_dir(), os.path.basename(str(cookie))))
+        if os.path.isfile(candidate):
+            shutil.copy2(candidate, os.path.join(new_base, "cookies.txt"))
+    Path(os.path.join(new_base, "stdout.log")).touch(exist_ok=True)
+    Path(os.path.join(new_base, "logs.txt")).touch(exist_ok=True)
+    return target_slug
+
+
 def _read_json(path: str, default):
     try:
         with open(path, encoding="utf-8") as f:
@@ -186,14 +300,27 @@ def _task_info(slug: str) -> dict:
     with _lock:
         proc = _procs.get(slug)
         alive = proc is not None and proc.poll() is None
-    state = st.get("state", "idle")
+    command = _read_file_strip(os.path.join(base, "command.txt")) or st.get("command") or "gallery-dl --input-file urls.txt"
+    name = st.get("name") or _read_file_strip(os.path.join(base, "name.txt")) or slug
+    state = st.get("state")
+    if not state:
+        state = "running" if os.path.exists(os.path.join(base, "lock")) else "paused" if os.path.exists(os.path.join(base, "paused")) else "error" if os.path.exists(os.path.join(base, "error")) else "idle"
+    with _lock:
+        if slug in _paused_tasks and state == "running":
+            state = "paused"
+    if not alive:
+        pid = _read_file_strip(os.path.join(base, "pid"))
+        alive = bool(pid and _is_running(pid))
     if alive:
         state = "running"
     elif state == "running":
         state = "stopped"
     # progress: last NN% seen in the log tail.
     pct = None
-    for line in reversed(_tail(os.path.join(base, "stdout.log"), 60)):
+    log_path = os.path.join(base, "stdout.log")
+    if not os.path.exists(log_path):
+        log_path = os.path.join(base, "logs.txt")
+    for line in reversed(_tail(log_path, 60)):
         m = re.search(r"(\d{1,3})%", line)
         if m:
             try:
@@ -203,8 +330,10 @@ def _task_info(slug: str) -> dict:
                 pass
     schedule = _read_file_strip(os.path.join(base, "cron.txt"))
     return {
+        "id": slug,
         "slug": slug,
-        "name": st.get("name") or _read_file_strip(os.path.join(base, "name.txt")) or slug,
+        "name": name,
+        "command": command,
         "urls": len(urls),
         "state": state,
         "schedule": schedule,
@@ -213,7 +342,40 @@ def _task_info(slug: str) -> dict:
         "finished_at": st.get("finished_at"),
         "last_error": st.get("last_error"),
         "platform": _guess_platform(urls[0] if urls else ""),
+        "last_run": _read_file_strip(os.path.join(base, "last_run.txt")) or st.get("started_at"),
+        "next_run": _next_run(schedule),
+        "has_archive": os.path.isfile(os.path.join(base, "archive.sqlite")),
+        "has_cookies": os.path.isfile(os.path.join(base, "cookies.txt")),
+        "cookie_path": "cookies.txt" if os.path.isfile(os.path.join(base, "cookies.txt")) else "",
+        "oauth_site": _read_file_strip(os.path.join(base, "oauth_site.txt")),
+        "oauth_authenticated": _cache_has_token(os.path.join(base, "gallery-dl-cache.sqlite3")),
+        "timeout": _read_file_strip(os.path.join(base, "timeout.txt")),
+        "last_error_detail": _read_file_strip(os.path.join(base, "last_error.txt")),
     }
+
+
+def _next_run(expr: str):
+    if not expr:
+        return None
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+        nxt = CronTrigger.from_crontab(expr, timezone="UTC").get_next_fire_time(None, datetime.now(timezone.utc))
+        return nxt.isoformat() if nxt else None
+    except Exception:
+        return None
+
+
+def _cache_has_token(path: str) -> bool:
+    if not os.path.isfile(path):
+        return False
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=1)
+        try:
+            return con.execute("SELECT 1 FROM data LIMIT 1").fetchone() is not None
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return False
 
 
 def _guess_platform(url: str) -> str:
@@ -230,49 +392,154 @@ def _append_log(path: str, line: str) -> None:
         f.write(line.rstrip("\n") + "\n")
 
 
+def _rotate_task_logs(base: str) -> None:
+    legacy = os.path.join(base, "logs.txt")
+    try: has_log = os.path.isfile(legacy) and os.path.getsize(legacy) > 0
+    except OSError: has_log = False
+    if has_log:
+        stamp = datetime.now().strftime("%Y-%m-%dT%H%M%S")
+        archived = os.path.join(base, f"logs-{stamp}.txt")
+        try: os.replace(legacy, archived)
+        except OSError: pass
+        archives = sorted(fn for fn in os.listdir(base) if re.fullmatch(r"logs-\d{4}-\d{2}-\d{2}T\d{6}\.txt", fn))
+        for old in archives[:-10]:
+            try: os.remove(os.path.join(base, old))
+            except OSError: pass
+    for filename in ("stdout.log", "logs.txt"):
+        try: Path(os.path.join(base, filename)).write_text("", encoding="utf-8")
+        except OSError: pass
+
+
 def _run_task(slug: str) -> None:
-    """Worker: gallery-dl --input-file urls.txt, streaming into stdout.log."""
+    """Run one persisted task using the legacy task-folder contract."""
     base = os.path.join(tasks_dir(), slug)
     log_path = os.path.join(base, "stdout.log")
+    legacy_log = os.path.join(base, "logs.txt")
     st_path = os.path.join(base, "status.json")
+    lock_path = os.path.join(base, "lock")
+    pid_path = os.path.join(base, "pid")
+    if not os.path.isdir(base) or os.path.exists(os.path.join(base, "paused")):
+        return
+    with _lock:
+        if slug in _procs and _procs[slug].poll() is None:
+            return
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        os.close(fd)
+    except FileExistsError:
+        pid_text = _read_file_strip(pid_path)
+        stale_marker = not pid_text and time.time() - os.path.getmtime(lock_path) > 60
+        if (pid_text and not _is_running(pid_text)) or stale_marker:
+            for marker in (lock_path, pid_path):
+                try: os.remove(marker)
+                except OSError: pass
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(fd)
+            except OSError:
+                return
+        else:
+            return
+    global _queued_runs
+    with _lock: _queued_runs += 1
+    _slots.acquire()
+    with _lock: _queued_runs = max(0, _queued_runs - 1)
+    started = time.time()
+    _rotate_task_logs(base)
+    for filename in ("error", "last_error.txt", "stopped"):
+        try: os.remove(os.path.join(base, filename))
+        except FileNotFoundError: pass
     st = _read_json(st_path, {})
     st.update({"state": "running", "started_at": _now(), "finished_at": None, "last_error": None})
     _write_json(st_path, st)
+    os.makedirs(base, exist_ok=True)
     try:
-        cmd = shlex.split(st.get("command") or "gallery-dl --input-file urls.txt")
+        command = _read_file_strip(os.path.join(base, "command.txt")) or st.get("command") or "gallery-dl --input-file urls.txt"
+        cmd = shlex.split(command)
     except ValueError as e:
         st.update({"state": "error", "finished_at": _now(), "last_error": str(e)[:300]})
         _write_json(st_path, st)
+        _slots.release()
+        try: os.remove(lock_path)
+        except OSError: pass
         return
-    _append_log(log_path, f"[launcher] $ {' '.join(cmd)}")
+    if not cmd:
+        st.update({"state": "error", "finished_at": _now(), "last_error": "Empty command"})
+        _write_json(st_path, st)
+        _slots.release()
+        try: os.remove(lock_path)
+        except OSError: pass
+        return
+    if not os.path.isfile(os.path.join(base, "urls.txt")):
+        st.update({"state": "error", "finished_at": _now(), "last_error": "urls.txt not found"})
+        _write_json(st_path, st)
+        _slots.release()
+        try: os.remove(lock_path)
+        except OSError: pass
+        return
+    log_line = f"\n\n==== Run at {_now()} ====\n$ {' '.join(shlex.quote(a) for a in cmd)}\n"
+    _append_log(log_path, log_line)
+    _append_log(legacy_log, log_line)
     try:
+        env = os.environ.copy()
+        env["GALLERY_DL_CONFIG"] = os.path.join(config_dir(), "gallery-dl.conf")
+        env["PATH"] = env.get("PATH", "") + os.pathsep + "/usr/local/bin"
         proc = subprocess.Popen(
             cmd, cwd=base, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1,
+            text=True, bufsize=1, env=env,
         )
     except Exception as e:
         st.update({"state": "error", "finished_at": _now(), "last_error": str(e)[:300]})
         _write_json(st_path, st)
         _append_log(log_path, f"[launcher] spawn failed: {e}")
+        _append_log(legacy_log, f"[launcher] spawn failed: {e}")
+        _slots.release()
+        try: os.remove(lock_path)
+        except OSError: pass
         return
     with _lock:
         _procs[slug] = proc
     try:
         assert proc.stdout is not None
-        with open(log_path, "a", encoding="utf-8") as lf:
-            for line in proc.stdout:
-                lf.write(line)
-        rc = proc.wait()
+        def pump():
+            with open(log_path, "a", encoding="utf-8") as lf, open(legacy_log, "a", encoding="utf-8") as oldlf:
+                for line in proc.stdout:
+                    lf.write(line); lf.flush()
+                    oldlf.write(line); oldlf.flush()
+        reader = threading.Thread(target=pump, daemon=True)
+        reader.start()
+        timeout = 0
+        try: timeout = int(_read_file_strip(os.path.join(base, "timeout.txt")) or os.environ.get("TASK_TIMEOUT_SECONDS", "0"))
+        except (TypeError, ValueError): timeout = 0
+        Path(pid_path).write_text(str(proc.pid), encoding="utf-8")
+        timed_out = False
+        try:
+            rc = proc.wait(timeout=timeout if timeout > 0 else None)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            rc = proc.wait()
+            timed_out = True
+        reader.join(timeout=5)
         st = _read_json(st_path, {})
         if rc == 0:
             st.update({"state": "done", "finished_at": _now()})
         elif st.get("state") == "running":
             st.update({"state": "error", "finished_at": _now(),
-                       "last_error": f"exit code {rc}"})
+                       "last_error": f"Timed out after {timeout}s" if timed_out else f"exit code {rc}"})
         _write_json(st_path, st)
+        Path(os.path.join(base, "last_run.txt")).write_text(_now(), encoding="utf-8")
+        with open(os.path.join(base, "run_history.jsonl"), "a", encoding="utf-8") as hf:
+            hf.write(json.dumps({"ts": _now(), "success": rc == 0, "duration": round(time.time() - started, 1), "exit": rc}) + "\n")
+        if rc != 0:
+            Path(os.path.join(base, "error")).touch()
+            Path(os.path.join(base, "last_error.txt")).write_text(st.get("last_error") or f"exit code {rc}", encoding="utf-8")
     finally:
         with _lock:
             _procs.pop(slug, None)
+        for marker in (lock_path, pid_path):
+            try: os.remove(marker)
+            except OSError: pass
+        _slots.release()
 
 
 def _now() -> str:
@@ -291,13 +558,45 @@ def engines():
     })
 
 
+@gdl_api.get("/queue")
+def queue_status():
+    if not _authed(): return _deny()
+    running = sum(1 for p in _procs.values() if p.poll() is None)
+    return jsonify({"running": running, "queued": _queued_runs, "max_concurrent": _max_concurrent})
+
+
+@gdl_api.get("/settings")
+def settings_get():
+    if not _authed(): return _deny()
+    saved = _read_file_strip(os.path.join(config_dir(), "task_concurrent_max.txt"))
+    try: value = max(1, min(64, int(saved))) if saved else _max_concurrent
+    except ValueError: value = _max_concurrent
+    return jsonify({"max_concurrent": value})
+
+
+@gdl_api.put("/settings")
+def settings_put():
+    global _slots, _max_concurrent
+    if not _authed(): return _deny()
+    data = request.get_json(silent=True) or {}
+    try: value = max(1, min(64, int(data.get("max_concurrent", _max_concurrent))))
+    except (TypeError, ValueError): return jsonify({"error": "invalid concurrency"}), 400
+    with _lock:
+        running = sum(1 for p in _procs.values() if p.poll() is None)
+        if running or _queued_runs: return jsonify({"error": "Wait for running and queued tasks before changing concurrency"}), 409
+        _max_concurrent = value
+        _slots = threading.BoundedSemaphore(value)
+    Path(os.path.join(config_dir(), "task_concurrent_max.txt")).write_text(str(value), encoding="utf-8")
+    return jsonify({"ok": True, "max_concurrent": value})
+
+
 @gdl_api.get("/tasks")
 def tasks_list():
     if not _authed():
         return _deny()
     out = []
     for slug in sorted(os.listdir(tasks_dir())):
-        if os.path.isdir(os.path.join(tasks_dir(), slug)):
+        if _valid_slug(slug) and os.path.isdir(os.path.join(tasks_dir(), slug)):
             out.append(_task_info(slug))
     return jsonify({"tasks": out})
 
@@ -306,35 +605,26 @@ def tasks_list():
 def tasks_create():
     if not _authed():
         return _deny()
-    data = request.get_json(force=True, silent=True) or {}
-    name = (data.get("name") or "").strip() or "untitled"
-    urls = data.get("urls") or []
-    if isinstance(urls, str):
-        urls = [urls]
-    urls = [u.strip() for u in urls if u and u.strip()]
-    if not urls:
-        return jsonify({"error": "at least one URL required"}), 400
-    slug = _slug(data.get("slug") or name)
-    base = os.path.join(tasks_dir(), slug)
-    if os.path.exists(base):
-        slug = f"{slug}-{int(time.time())}"
-        base = os.path.join(tasks_dir(), slug)
-    os.makedirs(base)
-    with open(os.path.join(base, "urls.txt"), "w", encoding="utf-8") as f:
-        f.write("\n".join(urls) + "\n")
-    with open(os.path.join(base, "command.txt"), "w", encoding="utf-8") as f:
-        f.write((data.get("command") or "gallery-dl --input-file urls.txt") + "\n")
-    _write_json(os.path.join(base, "status.json"), {
-        "name": name, "state": "idle", "command": data.get("command") or "gallery-dl --input-file urls.txt",
-    })
-    open(os.path.join(base, "stdout.log"), "a").close()
-    schedule = (data.get("schedule") or "").strip()
-    if schedule:
-        try:
-            _set_schedule(slug, schedule)
-        except Exception as e:
-            shutil.rmtree(base, ignore_errors=True)
-            return jsonify({"error": f"invalid or unavailable schedule: {str(e)[:200]}"}), 400
+    data = request.get_json(silent=True) or request.form.to_dict()
+    if request.files.get("urls_file") and request.files["urls_file"].filename:
+        raw_urls = request.files["urls_file"].read(10 * 1024 * 1024 + 1)
+        if len(raw_urls) > 10 * 1024 * 1024:
+            return jsonify({"error": "URL file exceeds 10 MB"}), 413
+        data["urls"] = raw_urls.decode("utf-8", "replace").splitlines()
+    if request.files.get("cookies_file") and request.files["cookies_file"].filename:
+        cookie_raw = request.files["cookies_file"].read(1024 * 1024 + 1)
+        if len(cookie_raw) > 1024 * 1024:
+            return jsonify({"error": "Cookie file exceeds 1 MB"}), 413
+        data["_cookies_raw"] = cookie_raw
+    if data.get("schedule_mode") == "manual":
+        data["schedule"] = ""
+    slug = str(data.get("slug") or data.get("original_slug") or "").strip() or None
+    try:
+        slug = _save_task(data, slug)
+    except (ValueError, FileNotFoundError, FileExistsError, RuntimeError) as e:
+        return jsonify({"error": str(e)[:300]}), 400
+    if data.get("_cookies_raw") is not None:
+        Path(os.path.join(tasks_dir(), slug, "cookies.txt")).write_bytes(data["_cookies_raw"])
     if data.get("start"):
         threading.Thread(target=_run_task, args=(slug,), daemon=True).start()
     return jsonify({"ok": True, "task": _task_info(slug)})
@@ -344,8 +634,8 @@ def tasks_create():
 def task_start(slug: str):
     if not _authed():
         return _deny()
-    base = os.path.join(tasks_dir(), slug)
-    if not os.path.isdir(base):
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base):
         return jsonify({"error": "unknown task"}), 404
     with _lock:
         proc = _procs.get(slug)
@@ -364,25 +654,130 @@ def task_start(slug: str):
     return jsonify({"ok": True, "state": "running"})
 
 
+@gdl_api.put("/tasks/<slug>")
+def task_update(slug: str):
+    if not _authed():
+        return _deny()
+    if not _task_base(slug) or not os.path.isdir(_task_base(slug)):
+        return jsonify({"error": "unknown task"}), 404
+    data = request.get_json(silent=True) or {}
+    data["original_slug"] = slug
+    try:
+        new_slug = _save_task(data, slug)
+        return jsonify({"ok": True, "task": _task_info(new_slug)})
+    except Exception as e:
+        return jsonify({"error": str(e)[:300]}), 400
+
+
+@gdl_api.post("/tasks/<slug>/action")
+def task_action(slug: str):
+    if not _authed():
+        return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base):
+        return jsonify({"error": "unknown task"}), 404
+    action = (request.get_json(silent=True) or {}).get("action", "")
+    if action == "run":
+        return task_start(slug)
+    if action == "stop":
+        return task_stop(slug)
+    if action == "pause":
+        marker = os.path.join(base, "paused")
+        if os.path.exists(marker):
+            os.remove(marker)
+            with _lock: _paused_tasks.discard(slug)
+            state = "unpaused"
+        else:
+            Path(marker).touch()
+            with _lock: _paused_tasks.add(slug)
+            state = "paused"
+        return jsonify({"ok": True, "state": state})
+    if action == "duplicate":
+        old_name = _read_file_strip(os.path.join(base, "name.txt")) or _read_json(os.path.join(base, "status.json"), {}).get("name") or slug
+        name = f"{old_name} copy"
+        new_slug = _slug(name)
+        n = 2
+        while os.path.exists(os.path.join(tasks_dir(), new_slug)):
+            name = f"{old_name} copy {n}"; new_slug = _slug(name); n += 1
+        new_base = os.path.join(tasks_dir(), new_slug); os.makedirs(new_base)
+        for fn in ("urls.txt", "command.txt", "cron.txt", "cookies.txt", "oauth_site.txt", "timeout.txt"):
+            src = os.path.join(base, fn)
+            if os.path.isfile(src): shutil.copy2(src, os.path.join(new_base, fn))
+        Path(os.path.join(new_base, "name.txt")).write_text(name, encoding="utf-8")
+        _write_json(os.path.join(new_base, "status.json"), {"name": name, "state": "idle", "command": _read_file_strip(os.path.join(new_base, "command.txt"))})
+        Path(os.path.join(new_base, "stdout.log")).touch()
+        if os.path.isfile(os.path.join(new_base, "cron.txt")):
+            try: _set_schedule(new_slug, _read_file_strip(os.path.join(new_base, "cron.txt")))
+            except Exception as e: return jsonify({"error": str(e)}), 400
+        return jsonify({"ok": True, "task": _task_info(new_slug)})
+    if action in ("clear_logs", "clear-log"):
+        for fn in ("stdout.log", "logs.txt"):
+            Path(os.path.join(base, fn)).write_text("", encoding="utf-8")
+        return jsonify({"ok": True})
+    if action == "delete_archive":
+        try: os.remove(os.path.join(base, "archive.sqlite"))
+        except FileNotFoundError: pass
+        return jsonify({"ok": True})
+    if action == "delete_cookies":
+        try: os.remove(os.path.join(base, "cookies.txt"))
+        except FileNotFoundError: pass
+        return jsonify({"ok": True})
+    return jsonify({"error": "unknown action"}), 400
+
+
+@gdl_api.post("/tasks/actions")
+def tasks_bulk_action():
+    if not _authed(): return _deny()
+    action = (request.get_json(silent=True) or {}).get("action")
+    if action == "pause_all":
+        for slug in os.listdir(tasks_dir()):
+            base = _task_base(slug)
+            if base and os.path.isdir(base): Path(os.path.join(base, "paused")).touch()
+        return jsonify({"ok": True})
+    if action == "clear_completed":
+        removed = 0
+        for slug in os.listdir(tasks_dir()):
+            base = _task_base(slug)
+            if base and os.path.isdir(base) and _task_info(slug)["state"] in ("done", "stopped", "error"):
+                shutil.rmtree(base, ignore_errors=True); _set_schedule(slug, ""); removed += 1
+        return jsonify({"ok": True, "removed": removed})
+    return jsonify({"error": "unknown action"}), 400
+
+
 @gdl_api.post("/tasks/<slug>/stop")
 def task_stop(slug: str):
     if not _authed():
         return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
     with _lock:
         proc = _procs.get(slug)
     if proc is None or proc.poll() is not None:
+        pid_text = _read_file_strip(os.path.join(base, "pid"))
+        if pid_text and _is_running(pid_text):
+            try: os.kill(int(pid_text), signal.SIGTERM)
+            except OSError: pass
+        else:
+            return jsonify({"ok": True, "state": "stopped"})
+        st_path = os.path.join(base, "status.json")
+        Path(os.path.join(base, "stopped")).touch()
+        st = _read_json(st_path, {})
+        st.update({"state": "stopped", "finished_at": _now()})
+        _write_json(st_path, st)
         return jsonify({"ok": True, "state": "stopped"})
     try:
+        Path(os.path.join(base, "stopped")).touch()
         proc.terminate()
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
-        st_path = os.path.join(tasks_dir(), slug, "status.json")
+        st_path = os.path.join(base, "status.json")
         st = _read_json(st_path, {})
         st.update({"state": "stopped", "finished_at": _now()})
         _write_json(st_path, st)
-        _append_log(os.path.join(tasks_dir(), slug, "stdout.log"), "[launcher] stopped by user")
+        _append_log(os.path.join(base, "stdout.log"), "[launcher] stopped by user")
+        _append_log(os.path.join(base, "logs.txt"), "[launcher] stopped by user")
     except Exception as e:
         return jsonify({"error": str(e)[:200]}), 500
     return jsonify({"ok": True, "state": "stopped"})
@@ -392,8 +787,8 @@ def task_stop(slug: str):
 def task_delete(slug: str):
     if not _authed():
         return _deny()
-    base = os.path.join(tasks_dir(), slug)
-    if not os.path.isdir(base):
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base):
         return jsonify({"error": "unknown task"}), 404
     _set_schedule(slug, "")
     with _lock:
@@ -408,15 +803,152 @@ def task_delete(slug: str):
 
 
 @gdl_api.get("/tasks/<slug>/log")
+@gdl_api.get("/tasks/<slug>/logs")
 def task_log(slug: str):
     if not _authed():
         return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base):
+        return jsonify({"error": "unknown task"}), 404
     lines = int(request.args.get("lines", 200))
     lines = max(1, min(lines, 2000))
+    path = os.path.join(base, "stdout.log")
+    if not os.path.isfile(path): path = os.path.join(base, "logs.txt")
     return jsonify({
         "slug": slug,
-        "lines": _tail(os.path.join(tasks_dir(), slug, "stdout.log"), lines),
+        "lines": _tail(path, lines),
     })
+
+
+@gdl_api.get("/tasks/<slug>/urls")
+def task_urls(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    return jsonify({"slug": slug, "content": _read_file_strip(os.path.join(base, "urls.txt"))})
+
+
+@gdl_api.put("/tasks/<slug>/urls")
+def task_urls_update(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    data = request.get_json(silent=True) or {}
+    content = data.get("content", "")
+    if not isinstance(content, str) or len(content) > 10 * 1024 * 1024:
+        return jsonify({"error": "invalid URL content"}), 400
+    Path(os.path.join(base, "urls.txt")).write_text(content.strip() + ("\n" if content.strip() else ""), encoding="utf-8")
+    return jsonify({"ok": True})
+
+
+@gdl_api.get("/tasks/<slug>/history")
+def task_history(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    runs = []
+    try:
+        with open(os.path.join(base, "run_history.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                try: runs.append(json.loads(line))
+                except ValueError: continue
+    except OSError: pass
+    return jsonify({"slug": slug, "runs": list(reversed(runs[-100:]))})
+
+
+@gdl_api.get("/tasks/<slug>/recent")
+def task_recent(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    log_path = os.path.join(base, "logs.txt") if os.path.isfile(os.path.join(base, "logs.txt")) else os.path.join(base, "stdout.log")
+    items = _recent_from_log(log_path, 20)
+    return jsonify({"slug": slug, "items": items})
+
+
+def _recent_from_log(path: str, limit: int):
+    root = os.path.realpath(downloads_dir())
+    found = []
+    seen = set()
+    for line in reversed(_tail(path, 2000)):
+        clean = line.replace("\\", "/")
+        i = clean.find(root.replace("\\", "/"))
+        if i < 0: continue
+        tail = clean[i + len(root):].strip(" \t\"'()[],:;")
+        match = re.search(r"([^\s\"']+\.(?:jpg|jpeg|png|gif|webp|mp4|webm|mkv))", tail, re.I)
+        if not match: continue
+        rel = match.group(1).lstrip("/")
+        candidate = os.path.realpath(os.path.join(root, rel))
+        if os.path.commonpath((root, candidate)) != root or not os.path.isfile(candidate) or rel in seen: continue
+        seen.add(rel)
+        ext = os.path.splitext(candidate)[1].lower()
+        found.append({"rel": rel, "name": os.path.basename(candidate), "ext": ext,
+                      "url": "/gdl/api/media/file?path=" + __import__("urllib.parse", fromlist=["quote"]).quote(rel),
+                      "is_image": ext in _IMAGE_EXTS, "is_video": ext in _MEDIA_EXTS - _IMAGE_EXTS,
+                      "size": os.path.getsize(candidate)})
+        if len(found) >= limit: break
+    return found
+
+
+@gdl_api.get("/tasks/<slug>/logs/archived")
+def task_archived_logs(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    files = []
+    for fn in sorted(os.listdir(base), reverse=True):
+        if re.fullmatch(r"logs-\d{4}-\d{2}-\d{2}T\d{6}\.txt", fn):
+            files.append({"name": fn, "size": os.path.getsize(os.path.join(base, fn))})
+    return jsonify({"files": files})
+
+
+@gdl_api.get("/tasks/<slug>/logs/download")
+def task_log_download(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "unknown task"}), 404
+    path = os.path.join(base, "stdout.log")
+    if not os.path.isfile(path): path = os.path.join(base, "logs.txt")
+    if not os.path.isfile(path): return jsonify({"error": "log not found"}), 404
+    return send_file(path, as_attachment=True, download_name=f"{slug}-logs.txt")
+
+
+@gdl_api.get("/tasks/<slug>/logs/archive/<filename>")
+def task_archived_log_download(slug: str, filename: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base) or not re.fullmatch(r"logs-\d{4}-\d{2}-\d{2}T\d{6}\.txt", filename):
+        return jsonify({"error": "archive not found"}), 404
+    path = os.path.join(base, filename)
+    if not os.path.isfile(path): return jsonify({"error": "archive not found"}), 404
+    return send_file(path, as_attachment=True, download_name=f"{slug}-{filename}")
+
+
+@gdl_api.get("/tasks/<slug>/logs/stream")
+def task_log_stream(slug: str):
+    if not _authed(): return _deny()
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return Response("", status=404)
+    path = os.path.join(base, "stdout.log")
+    if not os.path.isfile(path): path = os.path.join(base, "logs.txt")
+    def generate():
+        pos = os.path.getsize(path) if os.path.isfile(path) else 0
+        initial = "\n".join(_tail(path, 50))
+        yield "data: " + json.dumps({"content": initial, "reset": True}) + "\n\n"
+        while True:
+            time.sleep(1)
+            try:
+                size = os.path.getsize(path)
+                if size < pos:
+                    initial = "\n".join(_tail(path, 50))
+                    yield "data: " + json.dumps({"content": initial, "reset": True}) + "\n\n"; pos = size
+                elif size > pos:
+                    with open(path, encoding="utf-8", errors="replace") as f: f.seek(pos); text = f.read()
+                    pos = size
+                    yield f"data: {json.dumps({'content': text, 'reset': False})}\n\n"
+            except GeneratorExit: return
+            except OSError: continue
+    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @gdl_api.post("/quick")
@@ -428,6 +960,9 @@ def quick_start():
     url = (data.get("url") or "").strip()
     if not url:
         return jsonify({"error": "url required"}), 400
+    with _one_time_lock:
+        if _one_time_proc is not None and _one_time_proc.poll() is None:
+            return jsonify({"error": "a quick download is already running"}), 409
     dest = (data.get("dest") or "").strip() or downloads_dir()
     os.makedirs(dest, exist_ok=True)
     job_id = uuid.uuid4().hex[:12]
@@ -465,23 +1000,48 @@ def quick_start():
         cmd += ["--cookies", cp]
     cmd.append(url)
 
-    def _run():
-        _quick[job_id] = {"state": "running", "cmd": cmd, "started_at": _now()}
+    meta_path = os.path.join(tasks_dir(), f".quick-{job_id}.json")
+    shared_log = os.path.join(config_dir(), "one_time_download.log")
+    also_add_task = bool(data.get("also_add_task"))
+    task_slug = None
+    if also_add_task:
+        task_name = str(data.get("task_name") or "").strip()
+        if not task_name: return jsonify({"error": "task name required when adding this URL as a task"}), 400
         try:
-            with open(log_path, "w", encoding="utf-8") as lf:
+            task_slug = _save_task({"name": task_name, "urls": [url], "command": f"gallery-dl --config {conf or os.path.join(config_dir(), 'gallery-dl.conf')} --destination {dest} --input-file urls.txt", "start": False})
+        except Exception as e:
+            return jsonify({"error": f"could not create task: {e}"}), 400
+    def _save_job():
+        job = _quick.get(job_id, {})
+        _write_json(meta_path, {k: v for k, v in job.items() if k != "proc"})
+    def _run():
+        global _one_time_proc
+        _quick[job_id] = {"state": "running", "cmd": cmd, "started_at": _now(), "url": url, "dest": dest}
+        if task_slug: _quick[job_id]["task_slug"] = task_slug
+        _save_job()
+        try:
+            with open(log_path, "w", encoding="utf-8") as lf, open(shared_log, "a", encoding="utf-8") as shared:
                 lf.write(f"$ {' '.join(cmd)}\n")
+                shared.write(f"\n\n==== Quick download started at {_now()} ====\nURL: {url}\n$ {' '.join(shlex.quote(x) for x in cmd)}\n")
                 lf.flush()
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                        text=True, bufsize=1)
+                                        text=True, bufsize=1, cwd=dest)
+                with _one_time_lock: _one_time_proc = proc
                 _quick[job_id]["proc"] = proc
                 assert proc.stdout is not None
                 for line in proc.stdout:
-                    lf.write(line)
+                    lf.write(line); shared.write(line); shared.flush()
                 rc = proc.wait()
                 _quick[job_id].update({"state": "done" if rc == 0 else "error",
                                        "finished_at": _now(), "exit": rc})
+                shared.write(f"\nQuick download exited with code {rc}.\n")
+                _save_job()
         except Exception as e:
             _quick[job_id].update({"state": "error", "last_error": str(e)[:300]})
+            _quick[job_id]["finished_at"] = _now()
+            _save_job()
+        finally:
+            with _one_time_lock: _one_time_proc = None
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "job": job_id, "cmd": cmd})
@@ -491,18 +1051,39 @@ def quick_start():
 def quick_status(job_id: str):
     if not _authed():
         return _deny()
-    job = _quick.get(job_id)
+    if not re.fullmatch(r"[a-f0-9]{12}", job_id): return jsonify({"error": "unknown job"}), 404
+    job = _quick.get(job_id) or _read_json(os.path.join(tasks_dir(), f".quick-{job_id}.json"), None)
     if not job:
         return jsonify({"error": "unknown job"}), 404
+    if job.get("state") == "running" and job_id not in _quick:
+        job["state"] = "stopped"; job["finished_at"] = _now()
+        _write_json(os.path.join(tasks_dir(), f".quick-{job_id}.json"), job)
     out = {k: v for k, v in job.items() if k != "proc"}
     out["log"] = _tail(os.path.join(tasks_dir(), f".quick-{job_id}.log"), 120)
     return jsonify(out)
+
+
+@gdl_api.get("/quick")
+def quick_list():
+    if not _authed(): return _deny()
+    jobs = []
+    for fn in os.listdir(tasks_dir()):
+        if fn.startswith(".quick-") and fn.endswith(".json"):
+            job = _read_json(os.path.join(tasks_dir(), fn), {})
+            job["job"] = fn[7:-5]
+            if job.get("state") == "running" and job["job"] not in _quick:
+                job["state"] = "stopped"; job["finished_at"] = _now()
+                _write_json(os.path.join(tasks_dir(), fn), {k: v for k, v in job.items() if k != "job"})
+            jobs.append(job)
+    jobs.sort(key=lambda j: j.get("started_at", ""), reverse=True)
+    return jsonify({"jobs": jobs[:50]})
 
 
 @gdl_api.post("/quick/<job_id>/stop")
 def quick_stop(job_id: str):
     if not _authed():
         return _deny()
+    if not re.fullmatch(r"[a-f0-9]{12}", job_id): return jsonify({"error": "unknown job"}), 404
     job = _quick.get(job_id)
     if not job:
         return jsonify({"error": "unknown job"}), 404
@@ -513,7 +1094,80 @@ def quick_stop(job_id: str):
         except Exception:
             pass
         job["state"] = "stopped"
+        job["finished_at"] = _now()
+        _write_json(os.path.join(tasks_dir(), f".quick-{job_id}.json"), {k: v for k, v in job.items() if k != "proc"})
     return jsonify({"ok": True, "state": job.get("state")})
+
+
+@gdl_api.get("/one-time/status")
+def one_time_status():
+    if not _authed(): return _deny()
+    with _one_time_lock: running = bool(_one_time_proc is not None and _one_time_proc.poll() is None)
+    return jsonify({"running": running})
+
+
+@gdl_api.get("/one-time/logs")
+def one_time_logs():
+    if not _authed(): return _deny()
+    path = os.path.join(config_dir(), "one_time_download.log")
+    tail = max(1, min(2000, request.args.get("tail", type=int) or 200))
+    return jsonify({"running": one_time_status_running(), "content": "\n".join(_tail(path, tail)) if os.path.isfile(path) else ""})
+
+
+def one_time_status_running():
+    with _one_time_lock: return bool(_one_time_proc is not None and _one_time_proc.poll() is None)
+
+
+@gdl_api.get("/one-time/logs/download")
+def one_time_log_download():
+    if not _authed(): return _deny()
+    path = os.path.join(config_dir(), "one_time_download.log")
+    if not os.path.isfile(path): return jsonify({"error": "no log exists"}), 404
+    return send_file(path, as_attachment=True, download_name="one_time_download.log")
+
+
+@gdl_api.post("/one-time/clear-logs")
+def one_time_log_clear():
+    if not _authed(): return _deny()
+    Path(os.path.join(config_dir(), "one_time_download.log")).write_text("", encoding="utf-8")
+    return jsonify({"ok": True})
+
+
+@gdl_api.post("/one-time/stop")
+def one_time_stop():
+    if not _authed(): return _deny()
+    with _one_time_lock: proc = _one_time_proc
+    if proc is None or proc.poll() is not None: return jsonify({"ok": True, "state": "stopped"})
+    proc.terminate()
+    return jsonify({"ok": True, "state": "stopping"})
+
+
+@gdl_api.get("/one-time/recent")
+def one_time_recent():
+    if not _authed(): return _deny()
+    return jsonify({"items": _scan_recent_media(downloads_dir(), 16)})
+
+
+def _scan_recent_media(root: str, limit: int):
+    found = []
+    root = os.path.realpath(root)
+    try:
+        for dp, dirs, fns in os.walk(root):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            for fn in fns:
+                if os.path.splitext(fn)[1].lower() not in _MEDIA_EXTS: continue
+                path = os.path.join(dp, fn)
+                try:
+                    st = os.stat(path); rel = os.path.relpath(path, root)
+                    ext = os.path.splitext(fn)[1].lower()
+                    found.append({"name": fn, "filename": fn, "rel": rel, "size": st.st_size,
+                                  "mtime": st.st_mtime, "ext": ext,
+                                  "url": "/gdl/api/media/file?path=" + __import__("urllib.parse", fromlist=["quote"]).quote(rel),
+                                  "is_image": ext in _IMAGE_EXTS, "is_video": ext in _MEDIA_EXTS - _IMAGE_EXTS})
+                except OSError: continue
+    except OSError: pass
+    found.sort(key=lambda x: x["mtime"], reverse=True)
+    return found[:limit]
 
 
 @gdl_api.get("/telemetry")
@@ -535,6 +1189,29 @@ def telemetry():
 
     images = du(downloads_dir())
     meta = du(tasks_dir())
+    today = datetime.now().astimezone().date()
+    items_today = bytes_today = 0
+    try:
+        for dp, _, fns in os.walk(downloads_dir()):
+            for fn in fns:
+                fp = os.path.join(dp, fn)
+                try:
+                    st = os.stat(fp)
+                    if datetime.fromtimestamp(st.st_mtime).date() == today:
+                        items_today += 1; bytes_today += st.st_size
+                except OSError: pass
+    except OSError: pass
+    filtered = errors = 0
+    for slug in os.listdir(tasks_dir()):
+        base = _task_base(slug)
+        if not base or not os.path.isdir(base): continue
+        lp = os.path.join(base, "logs.txt") if os.path.isfile(os.path.join(base, "logs.txt")) else os.path.join(base, "stdout.log")
+        for line in _tail(lp, 5000):
+            low = line.lower()
+            filtered += int(any(k in low for k in ("skip", "filtered", "already downloaded")))
+            errors += int(any(k in low for k in ("error", "failed", "exception")))
+    try: disk = shutil.disk_usage(downloads_dir())
+    except OSError: disk = None
     return jsonify({
         "images_bytes": images,
         "tasks_bytes": meta,
@@ -542,6 +1219,14 @@ def telemetry():
         "tasks_gb": round(meta / 1e9, 1),
         "images_dir": downloads_dir(),
         "tasks_dir": tasks_dir(),
+        "items_today": items_today,
+        "bytes_today": bytes_today,
+        "filtered": filtered,
+        "errors": errors,
+        "disk_total": disk.total if disk else 0,
+        "disk_used": disk.used if disk else 0,
+        "disk_free": disk.free if disk else 0,
+        "disk_pct": round(disk.used / disk.total * 100, 1) if disk and disk.total else 0,
     })
 
 
@@ -550,7 +1235,18 @@ def kiosks_list():
     if not _authed():
         return _deny()
     kiosks = _read_json(os.path.join(config_dir(), "kiosks.json"), [])
-    return jsonify({"kiosks": kiosks if isinstance(kiosks, list) else []})
+    if not isinstance(kiosks, list): kiosks = []
+    known = {k.get("id") for k in kiosks}
+    root = os.path.join(config_dir(), "kiosks")
+    if os.path.isdir(root):
+        for kid in sorted(os.listdir(root)):
+            if not _valid_slug(kid) or kid in known: continue
+            settings = _kiosk_settings(kid)
+            kiosks.append({"id": kid, **settings, "live": False})
+    for k in kiosks:
+        k["image_count"] = len(_kiosk_images(k.get("id", "")))
+        k["view_url"] = f"/gdl/api/kiosk/{k.get('id','')}/view"
+    return jsonify({"kiosks": kiosks})
 
 
 @gdl_api.post("/kiosks")
@@ -562,17 +1258,26 @@ def kiosks_create():
     kiosks = _read_json(path, [])
     if not isinstance(kiosks, list):
         kiosks = []
-    k = {
-        "id": _slug(data.get("name") or "kiosk"),
-        "name": data.get("name") or "Untitled kiosk",
-        "folder": data.get("folder") or downloads_dir(),
-        "interval": int(data.get("interval") or 10),
-        "shuffle": bool(data.get("shuffle", True)),
-        "blur_nsfw": bool(data.get("blur_nsfw", True)),
-        "live": False,
-    }
+    name = (data.get("name") or "Untitled kiosk").strip()
+    kid = _slug(name)
+    if any(x.get("id") == kid for x in kiosks): return jsonify({"error": "kiosk already exists"}), 409
+    dflt = _read_json(os.path.join(config_dir(), "kiosk_defaults.json"), {})
+    k = {"id": kid, "name": name, "folder": data.get("folder") or downloads_dir(),
+         "interval": int(data.get("interval") or dflt.get("interval", 30)),
+         "shuffle": bool(data.get("shuffle", dflt.get("shuffle", True))),
+         "blur_nsfw": bool(data.get("blur_nsfw", dflt.get("blur_nsfw", True))),
+         "order": data.get("order") or ("random" if data.get("shuffle", dflt.get("shuffle", True)) else "sequential"),
+         "transition": data.get("transition") or dflt.get("transition", "fade"),
+         "trans_speed": float(data.get("trans_speed") or dflt.get("trans_speed", 0.9)),
+         "fit": data.get("fit") or dflt.get("fit", "contain"),
+         "background": data.get("background") or dflt.get("background", "black"),
+         "ken_burns": bool(data.get("ken_burns", dflt.get("ken_burns", False))),
+         "show_clock": bool(data.get("show_clock", dflt.get("show_clock", False))), "live": False}
     kiosks.append(k)
     _write_json(path, kiosks)
+    os.makedirs(os.path.join(config_dir(), "kiosks", kid, "images"), exist_ok=True)
+    _save_kiosk_settings(kid, k)
+    k["image_count"] = 0; k["view_url"] = f"/gdl/api/kiosk/{kid}/view"
     return jsonify({"ok": True, "kiosk": k})
 
 
@@ -587,7 +1292,127 @@ def kiosk_toggle(kid: str):
             k["live"] = not k.get("live")
             _write_json(path, kiosks)
             return jsonify({"ok": True, "kiosk": k})
-    return jsonify({"error": "unknown kiosk"}), 404
+    if not _valid_slug(kid) or not os.path.isdir(_kiosk_dir(kid)):
+        return jsonify({"error": "unknown kiosk"}), 404
+    k = {"id": kid, **_kiosk_settings(kid), "live": True}
+    kiosks.append(k)
+    _write_json(path, kiosks)
+    return jsonify({"ok": True, "kiosk": k})
+
+
+@gdl_api.put("/kiosks/<kid>")
+def kiosk_update(kid: str):
+    if not _authed(): return _deny()
+    if not _valid_slug(kid): return jsonify({"error": "invalid kiosk"}), 400
+    data = request.get_json(silent=True) or {}
+    settings = _kiosk_settings(kid)
+    settings.update({k: data[k] for k in ("name", "interval", "shuffle", "blur_nsfw", "order", "transition", "trans_speed", "fit", "background", "ken_burns", "show_clock", "folder") if k in data})
+    try: settings["interval"] = max(1, min(3600, int(settings.get("interval", 30))))
+    except (TypeError, ValueError): return jsonify({"error": "invalid interval"}), 400
+    _save_kiosk_settings(kid, settings)
+    path = os.path.join(config_dir(), "kiosks.json")
+    kiosks = _read_json(path, [])
+    for k in kiosks:
+        if k.get("id") == kid: k.update(settings)
+    _write_json(path, kiosks)
+    return jsonify({"ok": True, "kiosk": {"id": kid, **settings}})
+
+
+@gdl_api.post("/kiosks/<kid>/images")
+def kiosk_upload_images(kid: str):
+    if not _authed(): return _deny()
+    if not _valid_slug(kid): return jsonify({"error": "invalid kiosk"}), 400
+    root = os.path.join(config_dir(), "kiosks", kid, "images"); os.makedirs(root, exist_ok=True)
+    added, skipped = [], []
+    for upload in request.files.getlist("images"):
+        original = os.path.basename(upload.filename or "")
+        filename = re.sub(r"[^A-Za-z0-9._ -]", "_", original).strip(" .")
+        if not filename or os.path.splitext(filename)[1].lower() not in _IMAGE_EXTS:
+            skipped.append(original); continue
+        raw = upload.read(20 * 1024 * 1024 + 1)
+        if len(raw) > 20 * 1024 * 1024: skipped.append(original); continue
+        Path(os.path.join(root, filename)).write_bytes(raw); added.append(filename)
+    return jsonify({"ok": True, "added": added, "skipped": skipped})
+
+
+@gdl_api.delete("/kiosks/<kid>/images/<filename>")
+def kiosk_remove_image(kid: str, filename: str):
+    if not _authed(): return _deny()
+    if not _valid_slug(kid) or os.path.basename(filename) != filename: return jsonify({"error": "invalid path"}), 400
+    path = os.path.join(config_dir(), "kiosks", kid, "images", filename)
+    try: os.remove(path)
+    except FileNotFoundError: return jsonify({"error": "image not found"}), 404
+    return jsonify({"ok": True})
+
+
+@gdl_api.get("/kiosks/<kid>/images")
+def kiosk_images_admin(kid: str):
+    if not _authed(): return _deny()
+    if not _valid_slug(kid): return jsonify({"error": "invalid kiosk"}), 400
+    return jsonify({"images": _kiosk_images(kid)})
+
+
+@gdl_api.get("/kiosk/<kid>/images")
+def kiosk_public_images(kid: str):
+    if not _valid_slug(kid): return jsonify({"error": "invalid kiosk"}), 400
+    settings = _kiosk_settings(kid)
+    images = [{"name": fn, "url": f"/gdl/api/kiosk/{kid}/media/{__import__('urllib.parse', fromlist=['quote']).quote(fn)}"} for fn in _kiosk_images(kid)]
+    return jsonify({"slug": kid, "name": settings.get("name", kid), "interval": settings.get("interval", 30),
+                    "order": settings.get("order", "random"), "settings": settings, "images": images})
+
+
+@gdl_api.get("/kiosk/<kid>/media/<path:filename>")
+def kiosk_public_media(kid: str, filename: str):
+    if not _valid_slug(kid): return "Not found", 404
+    root = os.path.realpath(os.path.join(config_dir(), "kiosks", kid, "images"))
+    target = os.path.realpath(os.path.join(root, filename))
+    if os.path.commonpath((root, target)) != root or not os.path.isfile(target): return "Not found", 404
+    return send_file(target)
+
+
+@gdl_api.get("/kiosk/<kid>/view")
+@gdl_api.get("/kiosk/<kid>")
+def kiosk_public_view(kid: str):
+    if not _valid_slug(kid): return "Not found", 404
+    settings = _kiosk_settings(kid)
+    name = str(settings.get("name", kid)).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    background = str(settings.get("background", "black"))
+    if background not in ("black", "white", "blur") and not re.fullmatch(r"#[0-9a-fA-F]{3,8}", background): background = "black"
+    if background == "blur": background = "#20202a"
+    fit = settings.get("fit", "contain") if settings.get("fit") in ("contain", "cover", "center") else "contain"
+    transition = settings.get("transition", "fade") if settings.get("transition") in ("fade", "cut", "slide") else "fade"
+    try: speed = max(0.1, min(3.0, float(settings.get("trans_speed", 0.9))))
+    except (TypeError, ValueError): speed = 0.9
+    show_clock = str(settings.get("show_clock", "")).lower() in ("1", "true", "yes", "on")
+    ken_burns = str(settings.get("ken_burns", "")).lower() in ("1", "true", "yes", "on")
+    try: interval = max(1, min(3600, int(settings.get("interval", 30))))
+    except (TypeError, ValueError): interval = 30
+    html_doc = f'''<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{name}</title>
+<style>*{{box-sizing:border-box}}body{{margin:0;background:{background};color:white;font:14px Inter,system-ui;overflow:hidden}}#stage{{height:100vh;display:grid;place-items:center;overflow:hidden}}#slide{{max-width:100vw;max-height:100vh;object-fit:{fit};transition:opacity {speed}s ease,transform {speed}s ease}}#bar{{position:fixed;left:0;right:0;bottom:0;padding:20px;background:linear-gradient(transparent,#000b);display:flex;align-items:center;justify-content:center;gap:12px;opacity:0;transition:opacity .2s}}body:hover #bar{{opacity:1}}button{{border:1px solid #ffffff55;background:#18202dcc;color:#fff;border-radius:5px;padding:8px 14px;cursor:pointer}}#clock{{position:fixed;right:2vw;top:2vh;font-size:2rem;text-shadow:0 1px 8px #000}}{('@keyframes kb{from{transform:scale(1)}to{transform:scale(1.12)}}.ken-burns{animation:kb '+str(interval)+'s ease-in-out infinite alternate}') if ken_burns else ''}}</style></head>
+<body><div id="stage"><img id="slide" alt=""></div>{'<div id="clock"></div>' if show_clock else ''}<div id="bar"><button id="prev">Previous</button><button id="pause">Pause</button><button id="next">Next</button><button id="full">Fullscreen</button><span id="counter"></span><a href="/api/plugins/gallery-dl/page/kiosks" style="color:#fff">Manage</a></div>
+<script>const kid={json.dumps(kid)},effect={json.dumps(transition)},period={interval*1000};let imgs=[],idx=-1,paused=false,timer;const img=document.getElementById('slide');function show(n){{if(!imgs.length)return;idx=(n+imgs.length)%imgs.length;const set=()=>{{img.src=imgs[idx].url;img.className={json.dumps('ken-burns' if ken_burns else '')};document.getElementById('counter').textContent=(idx+1)+' / '+imgs.length}};if(effect==='cut'){{img.style.transition='none';set();return}}img.style.opacity=0;img.style.transform=effect==='slide'?'translateX(30px)':'none';setTimeout(()=>{{set();img.onload=()=>{{img.style.opacity=1;img.style.transform='none'}}}},250)}}function next(){{show(idx+1)}}function start(){{clearInterval(timer);timer=setInterval(()=>{{if(!paused)next()}},period)}}async function load(){{const r=await fetch('/gdl/api/kiosk/'+kid+'/images'),d=await r.json();imgs=d.images||[];if(d.order==='random')imgs.sort(()=>Math.random()-.5);if(imgs.length)show(0);else document.getElementById('counter').textContent='No images uploaded';start()}}document.getElementById('prev').onclick=()=>show(idx-1);document.getElementById('next').onclick=next;document.getElementById('pause').onclick=e=>{{paused=!paused;e.target.textContent=paused?'Resume':'Pause'}};document.getElementById('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();document.addEventListener('keydown',e=>{{if(e.key==='ArrowRight')next();if(e.key==='ArrowLeft')show(idx-1);if(e.key===' '){{e.preventDefault();paused=!paused;document.getElementById('pause').textContent=paused?'Resume':'Pause'}}if(e.key.toLowerCase()==='f')document.documentElement.requestFullscreen?.()}});load();{'setInterval(()=>document.getElementById("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),1000);' if show_clock else ''}</script></body></html>'''
+    return Response(html_doc, mimetype="text/html")
+
+
+def _kiosk_dir(kid: str):
+    return os.path.join(config_dir(), "kiosks", kid)
+
+
+def _kiosk_settings(kid: str):
+    return _read_json(os.path.join(_kiosk_dir(kid), "settings.json"), {"name": kid, "interval": 30, "order": "random", "shuffle": True, "blur_nsfw": True})
+
+
+def _save_kiosk_settings(kid: str, settings):
+    os.makedirs(_kiosk_dir(kid), exist_ok=True)
+    _write_json(os.path.join(_kiosk_dir(kid), "settings.json"), settings)
+
+
+def _kiosk_images(kid: str):
+    if not _valid_slug(kid): return []
+    root = os.path.join(_kiosk_dir(kid), "images")
+    if not os.path.isdir(root): return []
+    return sorted(fn for fn in os.listdir(root) if os.path.isfile(os.path.join(root, fn)) and os.path.splitext(fn)[1].lower() in _IMAGE_EXTS)
 
 
 @gdl_api.delete("/kiosks/<kid>")
@@ -597,7 +1422,32 @@ def kiosk_delete(kid: str):
     path = os.path.join(config_dir(), "kiosks.json")
     kiosks = [k for k in _read_json(path, []) if k.get("id") != kid]
     _write_json(path, kiosks)
+    if _valid_slug(kid): shutil.rmtree(_kiosk_dir(kid), ignore_errors=True)
     return jsonify({"ok": True})
+
+
+@gdl_api.get("/kiosk/<kid>/manifest.json")
+def kiosk_manifest(kid: str):
+    if not _valid_slug(kid): return jsonify({"error": "invalid kiosk"}), 400
+    settings = _kiosk_settings(kid); name = settings.get("name", kid)
+    return jsonify({"name": name, "short_name": name, "display": "fullscreen", "orientation": "landscape",
+                    "start_url": f"/gdl/api/kiosk/{kid}/view", "background_color": settings.get("background", "#000000"), "theme_color": "#000000", "icons": []})
+
+
+@gdl_api.get("/kiosks/defaults")
+def kiosk_defaults_get():
+    if not _authed(): return _deny()
+    return jsonify({"defaults": _read_json(os.path.join(config_dir(), "kiosk_defaults.json"), {"interval": 30, "transition": "fade", "shuffle": True, "blur_nsfw": True})})
+
+
+@gdl_api.put("/kiosks/defaults")
+def kiosk_defaults_put():
+    if not _authed(): return _deny()
+    data = request.get_json(silent=True) or {}
+    try: data["interval"] = max(1, min(3600, int(data.get("interval", 30))))
+    except (TypeError, ValueError): return jsonify({"error": "invalid interval"}), 400
+    _write_json(os.path.join(config_dir(), "kiosk_defaults.json"), data)
+    return jsonify({"ok": True, "defaults": data})
 
 
 @gdl_api.get("/config")
@@ -610,7 +1460,7 @@ def config_read():
         with open(path, encoding="utf-8") as f:
             content = f.read()
     except FileNotFoundError:
-        content = '{\n  "extractor": {\n    "filename": "{category}/{artist}_{id}_{title[:30]}",\n    "keywords": "images"\n  }\n}\n'
+        content = _read_file_strip(_DEFAULT_CONFIG_FILE)
     return jsonify({"path": path, "content": content})
 
 
@@ -622,13 +1472,120 @@ def config_write():
     content = data.get("content", "")
     if not isinstance(content, str) or len(content) > 200_000:
         return jsonify({"error": "bad content"}), 400
-    # gallery-dl.conf is a plain-text INI-style config (not JSON). Accept both:
-    # if the client sends JSON-structured content, keep it as-is; otherwise
-    # treat the raw text directly so existing .conf files work.
+    if content.strip():
+        try:
+            json.loads(content)
+        except json.JSONDecodeError as e:
+            return jsonify({"error": f"invalid JSON: {e.msg} (line {e.lineno}, column {e.colno})"}), 400
     path = os.path.join(config_dir(), "gallery-dl.conf")
     with open(path, "w", encoding="utf-8") as f:
         f.write(str(content))
     return jsonify({"ok": True, "path": path})
+
+
+@gdl_api.post("/config/reset")
+def config_reset():
+    if not _authed(): return _deny()
+    try:
+        with urlrequest.urlopen(_DEFAULT_CONFIG_URL, timeout=12) as resp:
+            content = resp.read(2_000_000).decode("utf-8")
+        json.loads(content)
+    except Exception:
+        content = _read_file_strip(_DEFAULT_CONFIG_FILE)
+    if not content:
+        return jsonify({"error": "Default config could not be loaded"}), 502
+    path = os.path.join(config_dir(), "gallery-dl.conf")
+    Path(path).write_text(content, encoding="utf-8")
+    return jsonify({"ok": True, "path": path, "content": content})
+
+
+@gdl_api.get("/config/check-update")
+def config_check_update():
+    if not _authed(): return _deny()
+    try:
+        with urlrequest.urlopen(_DEFAULT_CONFIG_URL, timeout=12) as resp:
+            remote = json.loads(resp.read(2_000_000).decode("utf-8"))
+        local = json.loads(_read_file_strip(os.path.join(config_dir(), "gallery-dl.conf")) or _read_file_strip(_DEFAULT_CONFIG_FILE) or "{}")
+    except Exception as e:
+        return jsonify({"error": str(e)[:300]}), 502
+    missing = []
+    def walk(a, b, prefix=""):
+        if not isinstance(b, dict): return
+        for key, val in b.items():
+            if key not in a:
+                missing.append((prefix + key, val))
+            elif isinstance(a.get(key), dict) and isinstance(val, dict):
+                walk(a[key], val, prefix + key + ".")
+    walk(local, remote)
+    return jsonify({"up_to_date": not missing, "total": len(missing),
+                    "options": [k for k, _ in missing[:100]], "config_url": _DEFAULT_CONFIG_URL})
+
+
+@gdl_api.post("/config/apply-update")
+def config_apply_update():
+    if not _authed(): return _deny()
+    path = os.path.join(config_dir(), "gallery-dl.conf")
+    try:
+        with urlrequest.urlopen(_DEFAULT_CONFIG_URL, timeout=12) as resp:
+            remote = json.loads(resp.read(2_000_000).decode("utf-8"))
+        local = json.loads(_read_file_strip(path) or _read_file_strip(_DEFAULT_CONFIG_FILE) or "{}")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if os.path.isfile(path): shutil.copy2(path, path + f".bak.{stamp}")
+        def merge(a, b):
+            out = dict(a)
+            for key, val in b.items():
+                if key in out and isinstance(out[key], dict) and isinstance(val, dict): out[key] = merge(out[key], val)
+                elif key not in out: out[key] = json.loads(json.dumps(val))
+            return out
+        content = json.dumps(merge(local, remote), indent=2, ensure_ascii=False)
+        Path(path).write_text(content, encoding="utf-8")
+        return jsonify({"ok": True, "content": content})
+    except Exception as e:
+        return jsonify({"error": str(e)[:300]}), 502
+
+
+@gdl_api.get("/tools/check-update")
+def tools_check_update():
+    if not _authed(): return _deny()
+    result = {}
+    for command, package in (("gallery-dl", "gallery-dl"), ("yt-dlp", "yt-dlp")):
+        current = _tool_version(command)
+        entry = {"current": current}
+        try:
+            with urlrequest.urlopen(f"https://pypi.org/pypi/{package}/json", timeout=12) as resp:
+                latest = json.loads(resp.read(1_000_000).decode("utf-8"))["info"]["version"]
+            entry["latest"] = latest
+            entry["update_available"] = current not in ("missing", "not found") and current != latest
+        except Exception as e:
+            entry["error"] = str(e)[:200]
+        result[command.replace("-", "_")] = entry
+    return jsonify(result)
+
+
+@gdl_api.post("/tools/update")
+def tools_update():
+    if not _authed(): return _deny()
+    data = request.get_json(silent=True) or request.form.to_dict()
+    package = data.get("tool")
+    if package not in ("gallery-dl", "yt-dlp"):
+        return jsonify({"error": "unknown tool"}), 400
+    running = [slug for slug in os.listdir(tasks_dir()) if _valid_slug(slug) and os.path.isdir(os.path.join(tasks_dir(), slug)) and _task_info(slug)["state"] == "running"]
+    if _quick_running(): running.append("quick download")
+    if running and data.get("force") not in (True, "1", "true"):
+        return jsonify({"warning": True, "running": running}), 409
+    try:
+        proc = subprocess.run([sys.executable, "-m", "pip", "install", "--no-cache-dir", "--upgrade", package], capture_output=True, text=True, timeout=240)
+        output = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
+        if proc.returncode:
+            return jsonify({"error": "Package update failed", "output": output[-4000:]}), 500
+        _TOOL_CACHE.pop(package, None)
+        return jsonify({"ok": True, "new_version": _tool_version(package), "output": output[-4000:]})
+    except Exception as e:
+        return jsonify({"error": str(e)[:300]}), 500
+
+
+def _quick_running():
+    return any(job.get("state") == "running" for job in _quick.values())
 
 
 @gdl_api.get("/backup")
@@ -657,6 +1614,37 @@ def backup_download():
                      as_attachment=True, download_name="gallerydl-tasks-backup.tar.gz")
 
 
+@gdl_api.post("/backup/create")
+def backup_create():
+    if not _authed(): return _deny()
+    data = request.get_json(silent=True) or {}
+    slugs = data.get("slugs") if "slugs" in data else [s for s in os.listdir(tasks_dir()) if _valid_slug(s) and os.path.isdir(_task_base(s))]
+    if not isinstance(slugs, list): return jsonify({"error": "slugs must be a list"}), 400
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        for slug in slugs:
+            base = _task_base(str(slug))
+            if not base or not os.path.isdir(base): continue
+            for root, dirs, files in os.walk(base):
+                dirs[:] = [d for d in dirs if d not in ("__pycache__",)]
+                for filename in files:
+                    if filename in ("lock", "pid", "stopped"): continue
+                    path = os.path.join(root, filename)
+                    archive.write(path, "tasks/" + os.path.relpath(path, tasks_dir()).replace(os.sep, "/"))
+        if data.get("include_config"):
+            for filename in ("gallery-dl.conf", "task_concurrent_max.txt", "kiosk_defaults.json", "kiosks.json"):
+                path = os.path.join(config_dir(), filename)
+                if os.path.isfile(path): archive.write(path, "config/" + filename)
+        if data.get("include_kiosks", True):
+            root = os.path.join(config_dir(), "kiosks")
+            for folder, _, files in os.walk(root) if os.path.isdir(root) else []:
+                for filename in files:
+                    path = os.path.join(folder, filename)
+                    archive.write(path, "config/kiosks/" + os.path.relpath(path, root).replace(os.sep, "/"))
+    buf.seek(0)
+    return send_file(buf, mimetype="application/zip", as_attachment=True, download_name="gallerydl-backup.zip")
+
+
 @gdl_api.post("/restore")
 def backup_restore():
     """Restore a backup tar.gz into the tasks dir (skips existing slugs)."""
@@ -668,8 +1656,35 @@ def backup_restore():
     if "file" not in request.files:
         return jsonify({"error": "file field required"}), 400
     try:
-        data = request.files["file"].read()
+        data = request.files["file"].read(200 * 1024 * 1024 + 1)
+        if len(data) > 200 * 1024 * 1024: return jsonify({"error": "backup exceeds 200 MB"}), 413
         restored, skipped = [], []
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(data))
+        except zipfile.BadZipFile:
+            archive = None
+        if archive is not None:
+            restored_kiosks = set(); restored_config = False
+            for info in archive.infolist():
+                name = info.filename.replace("\\", "/")
+                parts = name.split("/")
+                if name.startswith("/") or ".." in parts or info.is_dir(): continue
+                dest = None
+                if len(parts) >= 3 and parts[0] == "tasks" and _valid_slug(parts[1]):
+                    dest = os.path.join(tasks_dir(), parts[1], *parts[2:]); restored.append(parts[1])
+                elif len(parts) >= 4 and parts[:2] == ["config", "kiosks"] and _valid_slug(parts[2]):
+                    dest = os.path.join(config_dir(), *parts[1:]); restored_kiosks.add(parts[2])
+                elif len(parts) == 2 and parts[0] == "config" and _valid_slug(_slug(parts[1])):
+                    dest = os.path.join(config_dir(), parts[1]); restored_config = True
+                if not dest: continue
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with archive.open(info) as src, open(dest, "wb") as out: shutil.copyfileobj(src, out)
+            for slug in set(restored):
+                cron = _read_file_strip(os.path.join(tasks_dir(), slug, "cron.txt"))
+                if cron:
+                    try: _set_schedule(slug, cron)
+                    except Exception: pass
+            return jsonify({"ok": True, "restored": len(set(restored)), "kiosks": len(restored_kiosks), "config": restored_config, "skipped": 0})
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
             for member in tar.getmembers():
                 if not member.isfile():
@@ -727,16 +1742,16 @@ def media_file():
     from flask import send_file
 
     rel = request.args.get("path", "")
-    root = os.path.abspath(downloads_dir())
-    cand = os.path.abspath(os.path.join(root, rel))
-    if not cand.startswith(root + os.sep) or not os.path.isfile(cand):
+    root = os.path.realpath(downloads_dir())
+    cand = os.path.realpath(os.path.join(root, rel))
+    if os.path.commonpath((root, cand)) != root or not os.path.isfile(cand):
         return jsonify({"error": "not found"}), 404
     return send_file(cand)
 
 
 @gdl_api.get("/oauth")
 def oauth_status():
-    """Profile presence only — secrets never leave the server."""
+    """List credential metadata and tasks with configured OAuth sites."""
     if not _authed():
         return _deny()
     profiles = []
@@ -752,12 +1767,151 @@ def oauth_status():
                 })
     except OSError:
         pass
-    # civitai key presence (core setting, value never exposed)
-    try:
-        from sdcodex import auth as core_auth  # noqa
+    tasks = []
+    for slug in sorted(os.listdir(tasks_dir())):
+        base = _task_base(slug)
+        if not base or not os.path.isdir(base): continue
+        site = _read_file_strip(os.path.join(base, "oauth_site.txt"))
+        if site in _OAUTH_SITES:
+            tasks.append({"slug": slug, "name": _read_file_strip(os.path.join(base, "name.txt")) or _read_json(os.path.join(base, "status.json"), {}).get("name") or slug,
+                          "site": site, "site_label": _OAUTH_SITES[site],
+                          "authenticated": _cache_has_token(os.path.join(base, "gallery-dl-cache.sqlite3")),
+                          "has_client_id": _oauth_client_id_configured(site)})
+    with _oauth_lock:
+        active = _oauth_task if _oauth_proc is not None and _oauth_proc.poll() is None else ""
+    return jsonify({"profiles": profiles, "tasks": tasks, "active_task": active})
 
-        profiles.append({"platform": "Civitai", "account": "workstation key",
-                         "method": "API key", "status": "unknown"})
+
+def _oauth_client_id_configured(site: str) -> bool:
+    try:
+        config = json.loads(_read_file_strip(os.path.join(config_dir(), "gallery-dl.conf")) or "{}")
+        return bool(config.get("extractor", {}).get(site, {}).get("client-id"))
     except Exception:
-        pass
-    return jsonify({"profiles": profiles})
+        return False
+
+
+def _oauth_data():
+    return request.get_json(silent=True) or request.form.to_dict()
+
+
+@gdl_api.post("/oauth/cookies")
+def oauth_save_cookies():
+    if not _authed(): return _deny()
+    data = _oauth_data()
+    platform = re.sub(r"[^a-z0-9_-]", "", str(data.get("platform") or "").lower())
+    content = data.get("cookies") or ""
+    if platform not in _OAUTH_SITES or not isinstance(content, str) or not content.strip():
+        return jsonify({"error": "Select a supported platform and provide a cookies.txt export"}), 400
+    first = content.lstrip().splitlines()[0]
+    if not first.startswith("#") and "\t" not in first:
+        return jsonify({"error": "This does not look like a Netscape-format cookie file"}), 400
+    path = os.path.join(config_dir(), f"cookies-{platform}.txt")
+    Path(path).write_text(content, encoding="utf-8")
+    return jsonify({"ok": True, "file": os.path.basename(path)})
+
+
+@gdl_api.delete("/oauth/cookies/<filename>")
+def oauth_delete_cookies(filename: str):
+    if not _authed(): return _deny()
+    if not re.fullmatch(r"cookies-[a-z0-9_-]+\.txt", filename): return jsonify({"error": "invalid profile"}), 400
+    try: os.remove(os.path.join(config_dir(), filename))
+    except FileNotFoundError: return jsonify({"error": "profile not found"}), 404
+    return jsonify({"ok": True})
+
+
+def _oauth_log_path():
+    return os.path.join(config_dir(), ".oauth_run.log")
+
+
+def _redact_oauth_log(content: str) -> str:
+    content = re.sub(r"(?i)(access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|password|PHPSESSID|code)=([^\s&]+)", r"\1=[redacted]", content)
+    return re.sub(r"(?i)(authorization:\s*bearer\s+)[^\s]+", r"\1[redacted]", content)
+
+
+@gdl_api.post("/oauth/start")
+def oauth_start():
+    global _oauth_proc, _oauth_task, _oauth_site
+    if not _authed(): return _deny()
+    data = _oauth_data()
+    slug = str(data.get("task_slug") or "")
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "task not found"}), 404
+    site = _read_file_strip(os.path.join(base, "oauth_site.txt"))
+    if site not in _OAUTH_SITES: return jsonify({"error": "task has no valid OAuth site"}), 400
+    with _oauth_lock:
+        if _oauth_proc is not None and _oauth_proc.poll() is None:
+            return jsonify({"error": f"OAuth for task '{_oauth_task}' is already running"}), 409
+        cache_path = os.path.join(base, "gallery-dl-cache.sqlite3")
+        cmd = ["gallery-dl", "--config", os.path.join(config_dir(), "gallery-dl.conf"), f"oauth:{site}", "--cache-file", cache_path]
+        if site in _OAUTH_STDIN_SITES: cmd += ["-o", "input=true"]
+        env = os.environ.copy(); env["PATH"] = env.get("PATH", "") + os.pathsep + "/usr/local/bin"
+        try:
+            log = open(_oauth_log_path(), "w", encoding="utf-8")
+            log.write(f"OAuth: {_OAUTH_SITES[site]} · {slug}\n$ {' '.join(shlex.quote(x) for x in cmd)}\n\n"); log.flush()
+            _oauth_proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, env=env, cwd=base)
+            _oauth_task, _oauth_site = slug, site
+        except Exception as e:
+            return jsonify({"error": str(e)[:300]}), 500
+    return jsonify({"ok": True, "task_slug": slug, "site": site})
+
+
+@gdl_api.get("/oauth/log")
+def oauth_log():
+    if not _authed(): return _deny()
+    with _oauth_lock: running = bool(_oauth_proc is not None and _oauth_proc.poll() is None)
+    content = _redact_oauth_log(_read_file_strip(_oauth_log_path()))
+    return jsonify({"running": running, "task_slug": _oauth_task, "content": content})
+
+
+@gdl_api.post("/oauth/paste")
+def oauth_paste():
+    if not _authed(): return _deny()
+    data = _oauth_data(); raw = str(data.get("value") or "").strip()
+    with _oauth_lock:
+        proc, site = _oauth_proc, _oauth_site
+        running = bool(proc is not None and proc.poll() is None)
+    if not running: return jsonify({"error": "No OAuth handshake is running"}), 400
+    if site in _OAUTH_STDIN_SITES:
+        if not raw: return jsonify({"error": "Paste the callback code first"}), 400
+        try: proc.stdin.write(raw + "\n"); proc.stdin.flush()
+        except Exception as e: return jsonify({"error": str(e)[:250]}), 500
+        return jsonify({"ok": True})
+    if "://" in raw: raw = raw.split("?", 1)[1] if "?" in raw else ""
+    elif raw.startswith("?"): raw = raw[1:]
+    if "code=" not in raw: return jsonify({"error": "Paste the failed redirect URL or its query string containing code="}), 400
+    try:
+        with urlrequest.urlopen("http://127.0.0.1:6414/?" + raw, timeout=15) as resp: resp.read()
+        return jsonify({"ok": True})
+    except http.client.RemoteDisconnected:
+        return jsonify({"ok": True, "note": "Callback delivered; check the log"})
+    except urlerror.URLError as e:
+        return jsonify({"error": f"Could not deliver callback: {getattr(e, 'reason', e)}"}), 502
+
+
+@gdl_api.post("/oauth/stop")
+def oauth_stop():
+    global _oauth_task, _oauth_site
+    if not _authed(): return _deny()
+    with _oauth_lock:
+        proc = _oauth_proc
+        if proc is not None and proc.poll() is None:
+            try: proc.terminate(); proc.wait(timeout=5)
+            except subprocess.TimeoutExpired: proc.kill()
+            except Exception: pass
+        _oauth_task, _oauth_site = "", ""
+    _append_log(_oauth_log_path(), "[Stopped by user]")
+    return jsonify({"ok": True})
+
+
+@gdl_api.post("/oauth/reset")
+def oauth_reset():
+    if not _authed(): return _deny()
+    slug = str(_oauth_data().get("task_slug") or "")
+    base = _task_base(slug)
+    if not base or not os.path.isdir(base): return jsonify({"error": "task not found"}), 404
+    with _oauth_lock:
+        if _oauth_task == slug and _oauth_proc is not None and _oauth_proc.poll() is None:
+            return jsonify({"error": "stop the active OAuth handshake first"}), 409
+    try: os.remove(os.path.join(base, "gallery-dl-cache.sqlite3"))
+    except FileNotFoundError: pass
+    return jsonify({"ok": True})
