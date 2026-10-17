@@ -417,6 +417,26 @@ def _append_log(path: str, line: str) -> None:
         f.write(line.rstrip("\n") + "\n")
 
 
+def _pump_process_output(stream, *logs) -> None:
+    pending = []
+    while True:
+        char = stream.read(1)
+        if not char:
+            break
+        pending.append(char)
+        if char in ("\r", "\n") or len(pending) >= 512:
+            text = "".join(pending)
+            for log in logs:
+                log.write(text)
+                log.flush()
+            pending.clear()
+    if pending:
+        text = "".join(pending)
+        for log in logs:
+            log.write(text)
+            log.flush()
+
+
 def _rotate_task_logs(base: str) -> None:
     legacy = os.path.join(base, "logs.txt")
     try: has_log = os.path.isfile(legacy) and os.path.getsize(legacy) > 0
@@ -528,9 +548,7 @@ def _run_task(slug: str) -> None:
         assert proc.stdout is not None
         def pump():
             with open(log_path, "a", encoding="utf-8") as lf, open(legacy_log, "a", encoding="utf-8") as oldlf:
-                for line in proc.stdout:
-                    lf.write(line); lf.flush()
-                    oldlf.write(line); oldlf.flush()
+                _pump_process_output(proc.stdout, lf, oldlf)
         reader = threading.Thread(target=pump, daemon=True)
         reader.start()
         timeout = 0
@@ -1054,8 +1072,7 @@ def quick_start():
                 with _one_time_lock: _one_time_proc = proc
                 _quick[job_id]["proc"] = proc
                 assert proc.stdout is not None
-                for line in proc.stdout:
-                    lf.write(line); shared.write(line); shared.flush()
+                _pump_process_output(proc.stdout, lf, shared)
                 rc = proc.wait()
                 _quick[job_id].update({"state": "done" if rc == 0 else "error",
                                        "finished_at": _now(), "exit": rc})
