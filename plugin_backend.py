@@ -130,8 +130,16 @@ def _env(name: str, default: str) -> str:
 
 def tasks_dir() -> str:
     # Old GalleryDL releases used *_DIR. Keep honoring those variables so an
-    # upgrade continues reading the existing mounted task directory.
-    d = _env("TASKS", os.environ.get("TASKS_DIR") or "/data/tasks")
+    # upgrade continues reading the existing mounted task directory. The
+    # original application also defaulted to /tasks before the plugin volume
+    # moved to /data/tasks; prefer that populated location during migration.
+    configured = os.environ.get("TASKS") or os.environ.get("TASKS_DIR")
+    d = configured or "/data/tasks"
+    legacy_candidates = [os.environ.get("TASKS_DIR"), "/tasks"]
+    for legacy in legacy_candidates:
+        if legacy and os.path.realpath(legacy) != os.path.realpath(d) and _has_saved_tasks(legacy):
+            d = legacy
+            break
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -144,6 +152,21 @@ def config_dir() -> str:
 
 def downloads_dir() -> str:
     return _env("IMAGES", os.environ.get("DOWNLOADS_DIR") or "/data/downloads")
+
+
+def _has_saved_tasks(path: str) -> bool:
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                if any(os.path.isfile(os.path.join(entry.path, marker)) for marker in (
+                    "urls.txt", "name.txt", "command.txt", "status.json", "cron.txt",
+                )):
+                    return True
+    except OSError:
+        return False
+    return False
 
 
 def _slug(name: str) -> str:
@@ -340,7 +363,7 @@ def _task_info(slug: str) -> dict:
         "state": state,
         "schedule": schedule,
         "progress": pct,
-        "started_at": st.get("started_at"),
+        "started_at": st.get("started_at") or _read_file_strip(os.path.join(base, "last_run.txt")),
         "finished_at": st.get("finished_at"),
         "last_error": st.get("last_error"),
         "platform": _guess_platform(urls[0] if urls else ""),
@@ -1389,11 +1412,20 @@ def kiosk_public_view(kid: str):
     ken_burns = str(settings.get("ken_burns", "")).lower() in ("1", "true", "yes", "on")
     try: interval = max(1, min(3600, int(settings.get("interval", 30))))
     except (TypeError, ValueError): interval = 30
+    ken_burns_css = (
+        "@keyframes kb{from{transform:scale(1)}to{transform:scale(1.12)}}"
+        ".ken-burns{animation:kb " + str(interval) + "s ease-in-out infinite alternate}"
+        if ken_burns else ""
+    )
+    clock_script = (
+        'setInterval(()=>document.getElementById("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),1000);'
+        if show_clock else ""
+    )
     html_doc = f'''<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{name}</title>
-<style>*{{box-sizing:border-box}}body{{margin:0;background:{background};color:white;font:14px Inter,system-ui;overflow:hidden}}#stage{{height:100vh;display:grid;place-items:center;overflow:hidden}}#slide{{max-width:100vw;max-height:100vh;object-fit:{fit};transition:opacity {speed}s ease,transform {speed}s ease}}#bar{{position:fixed;left:0;right:0;bottom:0;padding:20px;background:linear-gradient(transparent,#000b);display:flex;align-items:center;justify-content:center;gap:12px;opacity:0;transition:opacity .2s}}body:hover #bar{{opacity:1}}button{{border:1px solid #ffffff55;background:#18202dcc;color:#fff;border-radius:5px;padding:8px 14px;cursor:pointer}}#clock{{position:fixed;right:2vw;top:2vh;font-size:2rem;text-shadow:0 1px 8px #000}}{('@keyframes kb{from{transform:scale(1)}to{transform:scale(1.12)}}.ken-burns{animation:kb '+str(interval)+'s ease-in-out infinite alternate}') if ken_burns else ''}}</style></head>
+<style>*{{box-sizing:border-box}}body{{margin:0;background:{background};color:white;font:14px Inter,system-ui;overflow:hidden}}#stage{{height:100vh;display:grid;place-items:center;overflow:hidden}}#slide{{max-width:100vw;max-height:100vh;object-fit:{fit};transition:opacity {speed}s ease,transform {speed}s ease}}#bar{{position:fixed;left:0;right:0;bottom:0;padding:20px;background:linear-gradient(transparent,#000b);display:flex;align-items:center;justify-content:center;gap:12px;opacity:0;transition:opacity .2s}}body:hover #bar{{opacity:1}}button{{border:1px solid #ffffff55;background:#18202dcc;color:#fff;border-radius:5px;padding:8px 14px;cursor:pointer}}#clock{{position:fixed;right:2vw;top:2vh;font-size:2rem;text-shadow:0 1px 8px #000}}{ken_burns_css}</style></head>
 <body><div id="stage"><img id="slide" alt=""></div>{'<div id="clock"></div>' if show_clock else ''}<div id="bar"><button id="prev">Previous</button><button id="pause">Pause</button><button id="next">Next</button><button id="full">Fullscreen</button><span id="counter"></span><a href="/api/plugins/gallery-dl/page/kiosks" style="color:#fff">Manage</a></div>
-<script>const kid={json.dumps(kid)},effect={json.dumps(transition)},period={interval*1000};let imgs=[],idx=-1,paused=false,timer;const img=document.getElementById('slide');function show(n){{if(!imgs.length)return;idx=(n+imgs.length)%imgs.length;const set=()=>{{img.src=imgs[idx].url;img.className={json.dumps('ken-burns' if ken_burns else '')};document.getElementById('counter').textContent=(idx+1)+' / '+imgs.length}};if(effect==='cut'){{img.style.transition='none';set();return}}img.style.opacity=0;img.style.transform=effect==='slide'?'translateX(30px)':'none';setTimeout(()=>{{set();img.onload=()=>{{img.style.opacity=1;img.style.transform='none'}}}},250)}}function next(){{show(idx+1)}}function start(){{clearInterval(timer);timer=setInterval(()=>{{if(!paused)next()}},period)}}async function load(){{const r=await fetch('/gdl/api/kiosk/'+kid+'/images'),d=await r.json();imgs=d.images||[];if(d.order==='random')imgs.sort(()=>Math.random()-.5);if(imgs.length)show(0);else document.getElementById('counter').textContent='No images uploaded';start()}}document.getElementById('prev').onclick=()=>show(idx-1);document.getElementById('next').onclick=next;document.getElementById('pause').onclick=e=>{{paused=!paused;e.target.textContent=paused?'Resume':'Pause'}};document.getElementById('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();document.addEventListener('keydown',e=>{{if(e.key==='ArrowRight')next();if(e.key==='ArrowLeft')show(idx-1);if(e.key===' '){{e.preventDefault();paused=!paused;document.getElementById('pause').textContent=paused?'Resume':'Pause'}}if(e.key.toLowerCase()==='f')document.documentElement.requestFullscreen?.()}});load();{'setInterval(()=>document.getElementById("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),1000);' if show_clock else ''}</script></body></html>'''
+<script>const kid={json.dumps(kid)},effect={json.dumps(transition)},period={interval*1000};let imgs=[],idx=-1,paused=false,timer;const img=document.getElementById('slide');function show(n){{if(!imgs.length)return;idx=(n+imgs.length)%imgs.length;const set=()=>{{img.src=imgs[idx].url;img.className={json.dumps('ken-burns' if ken_burns else '')};document.getElementById('counter').textContent=(idx+1)+' / '+imgs.length}};if(effect==='cut'){{img.style.transition='none';set();return}}img.style.opacity=0;img.style.transform=effect==='slide'?'translateX(30px)':'none';setTimeout(()=>{{set();img.onload=()=>{{img.style.opacity=1;img.style.transform='none'}}}},250)}}function next(){{show(idx+1)}}function start(){{clearInterval(timer);timer=setInterval(()=>{{if(!paused)next()}},period)}}async function load(){{const r=await fetch('/gdl/api/kiosk/'+kid+'/images'),d=await r.json();imgs=d.images||[];if(d.order==='random')imgs.sort(()=>Math.random()-.5);if(imgs.length)show(0);else document.getElementById('counter').textContent='No images uploaded';start()}}document.getElementById('prev').onclick=()=>show(idx-1);document.getElementById('next').onclick=next;document.getElementById('pause').onclick=e=>{{paused=!paused;e.target.textContent=paused?'Resume':'Pause'}};document.getElementById('full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();document.addEventListener('keydown',e=>{{if(e.key==='ArrowRight')next();if(e.key==='ArrowLeft')show(idx-1);if(e.key===' '){{e.preventDefault();paused=!paused;document.getElementById('pause').textContent=paused?'Resume':'Pause'}}if(e.key.toLowerCase()==='f')document.documentElement.requestFullscreen?.()}});load();{clock_script}</script></body></html>'''
     return Response(html_doc, mimetype="text/html")
 
 
