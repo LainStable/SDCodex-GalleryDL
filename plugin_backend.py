@@ -640,7 +640,11 @@ def tasks_list():
     out = []
     for slug in sorted(os.listdir(tasks_dir())):
         if _valid_slug(slug) and os.path.isdir(os.path.join(tasks_dir(), slug)):
-            out.append(_task_info(slug))
+            try:
+                out.append(_task_info(slug))
+            except Exception:
+                # One unreadable task folder must not 500 the whole list.
+                continue
     return jsonify({"tasks": out})
 
 

@@ -440,7 +440,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         $('eng-ytdlp-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.yt_dlp && !['missing','not found'].includes(eng.yt_dlp) ? 'bg-status-active' : 'bg-status-alert');
       }
       const q = await jget('/gdl/api/queue').catch(() => null); if(q) $('max-concurrent').textContent=q.max_concurrent;
-      const tasks = (tj && tj.tasks) || [];
+      // A failed tasks fetch (backend waking, session refresh) must not wipe
+      // the rendered list — keep the previous rows until a fetch succeeds.
+      if (!tj || !Array.isArray(tj.tasks)) return;
+      const tasks = tj.tasks;
       const active = tasks.filter((t) => t.state === 'running').length;
       $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
       $('job-rows').innerHTML = tasks.length === 0
