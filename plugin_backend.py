@@ -888,6 +888,39 @@ def task_urls_update(slug: str):
     return jsonify({"ok": True})
 
 
+@gdl_api.get("/task")
+def plugin_task_status():
+    """Aggregated background-task status for PluginTaskFloat."""
+    active = False
+    current = 0
+    total = 0
+    detail = ""
+    message = ""
+    started_at = 0
+    state_str = "idle"
+    with _lock:
+        running_slugs = [s for s, p in _procs.items() if p.poll() is None]
+        if running_slugs:
+            active = True
+            slug = running_slugs[0]
+            info = _task_info(slug) if _task_base(slug) else {}
+            state_str = info.get("state", "running") if info else "running"
+            current = 1
+            total = max(1, len(running_slugs))
+            message = info.get("message") or f"Task {slug} running"
+            detail = slug
+            started_at = info.get("started_at", 0) if info else 0
+    return jsonify({
+        "active": active,
+        "state": state_str,
+        "current": current,
+        "total": total,
+        "detail": detail,
+        "message": message,
+        "started_at": started_at,
+    })
+
+
 @gdl_api.get("/tasks/<slug>/history")
 def task_history(slug: str):
     if not _authed(): return _deny()

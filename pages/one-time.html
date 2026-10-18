@@ -185,10 +185,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     try {
       localStorage.setItem(QUICK_SETTINGS_KEY, JSON.stringify(values));
       savedQuickSettings = values;
-    } catch (error) {
-      $('quick-status').textContent = `Could not save settings: ${error.message}`;
+    } catch (_) {
+      try { sessionStorage.setItem(QUICK_SETTINGS_KEY, JSON.stringify(values)); savedQuickSettings = values; } catch (_) {}
     }
   }
+  window.addEventListener('beforeunload', saveQuickSettings);
+  try { const s = sessionStorage.getItem(QUICK_SETTINGS_KEY); if (s) savedQuickSettings = JSON.parse(s); } catch (_) {}
   restoreQuickSettings();
   QUICK_SETTING_IDS.forEach(id => {
     const el = $(id);
@@ -209,7 +211,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         });
       }
     } catch (_) {}
-    restoreQuickSettings();
+    try { const s = sessionStorage.getItem(QUICK_SETTINGS_KEY); if (s) savedQuickSettings = JSON.parse(s); } catch (_) {}
+  restoreQuickSettings();
     buildPreview();
   }
   loadProfiles();

@@ -60,6 +60,11 @@
     }
   ],
   "entrypoint": "plugin:init_plugin",
+  "task_status": {
+    "label": "GalleryDL",
+    "path": "/gdl/api/task",
+    "page": "tasks"
+  },
   "assistant_actions": [
     {
       "name": "queue_status",
