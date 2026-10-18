@@ -480,10 +480,16 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           return `<a href="${url}" target="_blank" class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden block"><div class="relative h-44 bg-surface-container-high flex items-center justify-center">${video ? `<video src="${url}" muted class="h-full w-full object-cover"></video>` : `<img src="${url}" loading="lazy" class="h-full w-full object-cover" alt="">`}<span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary">${esc(m.name.split('.').pop().toUpperCase())}</span></div><div class="p-3"><span class="text-sm font-medium truncate block">${esc(m.name)}</span><span class="font-mono text-[11px] text-outline">${fmtMB(m.size)} · ${new Date(m.mtime*1000).toLocaleString()}</span></div></a>`;
         }).join('') : '<div class="text-outline font-mono text-xs">No downloaded media found yet.</div>';
       }
-    } catch (e) { /* backend waking up */ }
+    } catch (e) {
+      console.error('GalleryDL refresh error:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      $('scan-status').textContent = 'Refresh failed: ' + msg.slice(0, 60);
+    }
   }
   void refresh();
   setInterval(refresh, 5000);
+  window.addEventListener('pageshow', () => void refresh());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
 })();
 </script>
 </div>
