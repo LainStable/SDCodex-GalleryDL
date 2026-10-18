@@ -383,15 +383,26 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </tr>`;
   }
   window.editTask = async (slug) => {
-    const [t, urls] = await Promise.all([jget('/gdl/api/tasks').then(x => x.tasks.find(y => y.slug === slug)), jget(`/gdl/api/tasks/${slug}/urls`)]);
-    if (!t) return;
-    $('originalSlug').value = slug; $('cName').value = t.name || slug; $('cUrls').value = urls.content || ''; $('cConfig').value = t.command || '';
-    $('cCookie').value = t.cookie_path || ''; $('cOauth').value = t.oauth_site || ''; $('cTimeout').value = t.timeout || '';
-    $('cSched').disabled = !t.schedule; $('cSched').value = t.schedule || '';
-    $('cModeCron').checked = !!t.schedule; $('cModeManual').checked = !t.schedule;
-    $('cStart').checked = false;
-    $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
-    $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
+    try {
+      const [t, urls] = await Promise.all([
+        jget('/gdl/api/tasks').then(x => x.tasks.find(y => y.slug === slug)),
+        jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/urls`).catch(() => ({ content: '' }))
+      ]);
+      if (!t) {
+        alert('Task not found: ' + slug);
+        return;
+      }
+      $('originalSlug').value = slug; $('cName').value = t.name || slug; $('cUrls').value = urls?.content || ''; $('cConfig').value = t.command || '';
+      $('cCookie').value = t.cookie_path || ''; $('cOauth').value = t.oauth_site || ''; $('cTimeout').value = t.timeout || '';
+      $('cSched').disabled = !t.schedule; $('cSched').value = t.schedule || '';
+      $('cModeCron').checked = !!t.schedule; $('cModeManual').checked = !t.schedule;
+      $('cStart').checked = false;
+      $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
+      $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
+    } catch (e) {
+      alert('Failed to load task for editing: ' + (e instanceof Error ? e.message : String(e)));
+      console.error('editTask error:', e);
+    }
   };
   window.showTaskDetails = async (slug) => {
     const task = taskRows.find((item) => item.slug === slug);
