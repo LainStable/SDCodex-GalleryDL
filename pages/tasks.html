@@ -276,6 +276,20 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div class="text-outline font-mono text-xs">Loading recent media…</div>
     </div>
   </section>
+
+  <!-- Media lightbox modal -->
+  <div id="media-lightbox" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-sm p-4 flex flex-col items-center justify-center" onclick="if(event.target===this)closeLightbox()">
+    <div class="relative max-h-[92vh] max-w-[92vw] flex flex-col items-center">
+      <div class="w-full flex items-center justify-between pb-2 text-xs font-mono text-outline">
+        <span id="lb-title" class="truncate max-w-md text-white font-medium"></span>
+        <div class="flex items-center gap-2">
+          <a id="lb-raw" href="" target="_blank" rel="noreferrer" class="px-2.5 py-1 rounded border border-white/15 bg-white/5 hover:text-white hover:bg-white/10 transition-colors">Open in new tab</a>
+          <button type="button" onclick="closeLightbox()" class="px-2.5 py-1 rounded border border-white/15 bg-white/5 hover:text-white hover:bg-white/10 transition-colors">✕</button>
+        </div>
+      </div>
+      <div id="lb-content" class="flex items-center justify-center overflow-hidden rounded-lg bg-[#070a10]"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -452,13 +466,16 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     const bar = pct != null
       ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
       : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(label || t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 bg-secondary animate-pulse rounded-full"></div>' : ''}</div>`;
+    const mediaBtn = `<button onclick="showTaskMedia('${t.slug}')" class="inline-flex items-center gap-1 rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-on-surface-variant hover:bg-white/10 hover:text-white" title="Recent media from this task"><span class="material-symbols-outlined text-xs text-secondary">photo_library</span>Media</button>`;
+    const statsBtn = `<button onclick="showTaskDetails('${t.slug}')" class="inline-flex items-center gap-1 rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-on-surface-variant hover:bg-white/10 hover:text-white" title="Stats, history and recent downloads"><span class="material-symbols-outlined text-xs text-badge-sdxl">monitoring</span>Stats</button>`;
     const btns = (t.state === 'running'
       ? `<button onclick="gdlAct('${t.slug}','stop')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop"><span class="material-symbols-outlined text-xs">stop</span></button>`
       : `<button onclick="gdlAct('${t.slug}','start')" class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Run now"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`) +
       `<button onclick="gdlAct('${t.slug}','pause')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Pause or resume"><span class="material-symbols-outlined text-xs">pause_circle</span></button><button onclick="gdlAct('${t.slug}','clear_logs')" class="p-1 rounded hover:bg-surface-container" title="Clear task logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>` +
       (t.has_archive ? `<button onclick="gdlAct('${t.slug}','delete_archive')" class="p-1 rounded hover:bg-surface-container" title="Remove download archive"><span class="material-symbols-outlined text-xs">database</span></button>` : '') +
       (t.has_cookies ? `<button onclick="gdlAct('${t.slug}','delete_cookies')" class="p-1 rounded hover:bg-surface-container" title="Remove task cookies"><span class="material-symbols-outlined text-xs">cookie</span></button>` : '') +
-      `<button onclick="showTaskMedia('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Recent media from this task"><span class="material-symbols-outlined text-xs">photo_library</span></button><button onclick="showTaskDetails('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Stats, history and recent downloads"><span class="material-symbols-outlined text-xs">monitoring</span></button><button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="logs?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
+      mediaBtn + statsBtn +
+      `<button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="logs?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
     return `<tr data-task="${esc(`${t.name || ''} ${t.slug || ''} ${t.command || ''}`).toLowerCase()}" data-state="${esc(t.state || 'idle')}" class="hover:bg-slate-surface/30 transition-colors">
       <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
       <td class="py-3 px-5">${scheduleDisplay}</td>
@@ -560,6 +577,19 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   };
   $('detail-media-btn').addEventListener('click', () => { if (detailSlug) showTaskMedia(detailSlug); });
 
+  window.openLightbox = (url, name, isVideo) => {
+    $('lb-title').textContent = name;
+    $('lb-raw').href = url;
+    $('lb-content').innerHTML = isVideo
+      ? `<video src="${url}" controls autoplay class="max-h-[82vh] max-w-[88vw] object-contain"></video>`
+      : `<img src="${url}" alt="${esc(name)}" class="max-h-[82vh] max-w-[88vw] object-contain">`;
+    $('media-lightbox').classList.remove('hidden');
+  };
+  window.closeLightbox = () => {
+    $('media-lightbox').classList.add('hidden');
+    $('lb-content').innerHTML = '';
+  };
+
   // ── Filmstrip ───────────────────────────────────────────────────────
   let filmTask = null;
   function filmCard(item) {
@@ -570,18 +600,18 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     const ext = (name.split('.').pop() || '').toUpperCase();
     const size = item.size != null ? fmtBytes(item.size) : '';
     const when = item.mtime ? new Date(item.mtime * 1000).toLocaleString() : '';
-    return `<a href="${url}" target="_blank" rel="noreferrer" class="group flex flex-col overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container-lowest hover:border-secondary/50">
-      <div class="relative flex h-44 items-center justify-center bg-[#070a10]">
+    return `<div onclick="openLightbox('${esc(url)}','${esc(name)}',${isVideo})" class="group flex flex-col overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container-lowest hover:border-secondary/50 cursor-pointer transition-colors">
+      <div class="relative flex h-48 items-center justify-center bg-[#070a10] p-1">
         ${isVideo
-          ? `<video src="${url}" muted preload="metadata" class="max-h-full max-w-full"></video>`
+          ? `<video src="${url}" muted preload="metadata" class="max-h-full max-w-full object-contain"></video>`
           : `<img src="${url}" loading="lazy" alt="${esc(name)}" class="max-h-full max-w-full object-contain">`}
         <span class="absolute left-2 top-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary">${esc(ext)}</span>
       </div>
       <div class="min-w-0 p-3">
-        <span class="block truncate text-sm font-medium" title="${esc(name)}">${esc(name)}</span>
+        <span class="block truncate text-sm font-medium text-white" title="${esc(name)}">${esc(name)}</span>
         <span class="font-mono text-[11px] text-outline">${size}${size && when ? ' · ' : ''}${esc(when)}</span>
       </div>
-    </a>`;
+    </div>`;
   }
   function renderFilm(items, label) {
     $('media-dir').textContent = label || 'Downloads';

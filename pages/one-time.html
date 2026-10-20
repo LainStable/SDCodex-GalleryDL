@@ -215,9 +215,21 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   restoreQuickSettings();
     buildPreview();
   }
-  loadProfiles();
-  async function loadRecent(){try{const d=await(await fetch('/gdl/api/one-time/recent',{credentials:'same-origin'})).json();$('quick-recent').innerHTML=(d.items||[]).map(x=>{const url=esc(x.url||'#');// Fit the whole image: these are previews of downloaded media, not crops.
-  const preview=x.is_image?`<img src="${url}" alt="${esc(x.name)}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#070a10">`:x.is_video?`<video src="${url}" muted preload="metadata" style="width:100%;height:160px;object-fit:contain;background:#070a10"></video>`:`<div style="height:160px;display:grid;place-items:center;background:#101622;color:#94a3b8">${esc((x.ext||'media').replace('.','').toUpperCase())}</div>`;return `<a href="${url}" target="_blank" rel="noreferrer" class="overflow-hidden rounded border border-outline-variant/30"><div style="background:#070a10">${preview}</div><span class="block truncate p-2" title="${esc(x.name)}">${esc(x.name)}</span></a>`}).join('')||'No recent quick-download files.'}catch(_){$('quick-recent').textContent='Recent downloads unavailable.'}}
+  window.openLightbox = (url, name, isVideo) => {
+    $('lb-title').textContent = name;
+    $('lb-raw').href = url;
+    $('lb-content').innerHTML = isVideo
+      ? `<video src="${url}" controls autoplay class="max-h-[82vh] max-w-[88vw] object-contain"></video>`
+      : `<img src="${url}" alt="${esc(name)}" class="max-h-[82vh] max-w-[88vw] object-contain">`;
+    $('media-lightbox').classList.remove('hidden');
+  };
+  window.closeLightbox = () => {
+    $('media-lightbox').classList.add('hidden');
+    $('lb-content').innerHTML = '';
+  };
+
+  async function loadRecent(){try{const d=await(await fetch('/gdl/api/one-time/recent',{credentials:'same-origin'})).json();$('quick-recent').innerHTML=(d.items||[]).map(x=>{const url=esc(x.url||'#');
+  const preview=x.is_image?`<img src="${url}" alt="${esc(x.name)}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#070a10">`:x.is_video?`<video src="${url}" muted preload="metadata" style="width:100%;height:160px;object-fit:contain;background:#070a10"></video>`:`<div style="height:160px;display:grid;place-items:center;background:#101622;color:#94a3b8">${esc((x.ext||'media').replace('.','').toUpperCase())}</div>`;return `<div onclick="openLightbox('${url}','${esc(x.name)}',${Boolean(x.is_video)})" class="overflow-hidden rounded border border-outline-variant/30 cursor-pointer hover:border-secondary/50 transition-colors"><div style="background:#070a10">${preview}</div><span class="block truncate p-2 text-xs text-white" title="${esc(x.name)}">${esc(x.name)}</span></div>`}).join('')||'No recent quick-download files.'}catch(_){$('quick-recent').textContent='Recent downloads unavailable.'}}
   $('quick-clear-log').onclick=async()=>{await fetch('/gdl/api/one-time/clear-logs',{method:'POST',credentials:'same-origin'});$('quick-log').textContent='';};
   $('quick-stop').onclick=async()=>{await fetch('/gdl/api/one-time/stop',{method:'POST',credentials:'same-origin'});$('quick-status').textContent='Stop requested';};
   void loadRecent();
