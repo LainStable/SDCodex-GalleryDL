@@ -6,6 +6,7 @@ working: <TASKS>/<slug>/{urls.txt, command.txt, status.json, stdout.log}.
 
 import json
 import io
+import heapq
 import mimetypes
 import os
 import re
@@ -31,7 +32,10 @@ gdl_api = Blueprint("gdl_api", __name__, url_prefix="/gdl/api")
 
 _procs: dict = {}          # slug -> Popen (task runs)
 _quick: dict = {}          # job_id -> {state, log file, proc, ...}
-_lock = threading.Lock()
+_lock = threading.RLock()  # reentrant: status helpers call each other
+_scan_lock = threading.Lock()
+_scan_cache: dict = {"ts": 0.0, "data": None}
+_TELEMETRY_TTL = 45.0
 _scheduler = None
 _settings_loaded = False
 _slots = threading.BoundedSemaphore(max(1, int(os.environ.get("TASK_CONCURRENT_MAX", "5") or "5")))
@@ -172,6 +176,65 @@ def downloads_dir() -> str:
     return _env("IMAGES", os.environ.get("DOWNLOADS_DIR") or "/data/downloads")
 
 
+def _scan_downloads(limit: int = 12) -> dict:
+    """One cached walk of the downloads tree for telemetry + the filmstrip.
+
+    /data/downloads is often a large mounted library. Walking it three times
+    per page poll (total size, today's count, newest media) kept every waitress
+    thread busy and exhausted the connection pool. Scan once, reuse the result
+    for a short TTL, and let concurrent callers read the previous snapshot
+    instead of queuing another full walk.
+    """
+    now = time.time()
+    data = _scan_cache.get("data")
+    if data is not None and now - _scan_cache.get("ts", 0) < _TELEMETRY_TTL:
+        return data
+    if not _scan_lock.acquire(blocking=False):
+        return data or {"bytes": 0, "today_items": 0, "today_bytes": 0, "media": []}
+    try:
+        now = time.time()
+        data = _scan_cache.get("data")
+        if data is not None and now - _scan_cache.get("ts", 0) < _TELEMETRY_TTL:
+            return data
+        root = downloads_dir()
+        today = datetime.now().astimezone().date()
+        total = 0
+        today_items = 0
+        today_bytes = 0
+        newest: list = []
+        try:
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                for filename in filenames:
+                    path = os.path.join(dirpath, filename)
+                    try:
+                        st = os.stat(path)
+                    except OSError:
+                        continue
+                    total += st.st_size
+                    if datetime.fromtimestamp(st.st_mtime).date() == today:
+                        today_items += 1
+                        today_bytes += st.st_size
+                    if filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm")):
+                        item = (st.st_mtime, filename, os.path.relpath(path, root), st.st_size)
+                        if len(newest) < limit:
+                            heapq.heappush(newest, item)
+                        elif item > newest[0]:
+                            heapq.heapreplace(newest, item)
+        except OSError:
+            pass
+        media = [
+            {"name": name, "rel": rel, "size": size, "mtime": mtime}
+            for mtime, name, rel, size in sorted(newest, key=lambda x: x[0], reverse=True)
+        ]
+        data = {"bytes": total, "today_items": today_items, "today_bytes": today_bytes, "media": media}
+        _scan_cache["data"] = data
+        _scan_cache["ts"] = now
+        return data
+    finally:
+        _scan_lock.release()
+
+
 def _has_saved_tasks(path: str) -> bool:
     try:
         with os.scandir(path) as entries:
@@ -280,10 +343,18 @@ def _read_json(path: str, default):
 
 
 def _write_json(path: str, data) -> None:
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, path)
+    # Task runners and the stop route can write status.json concurrently;
+    # a shared ".tmp" name made one os.replace lose the file to the other.
+    tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, path)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def _tail(path: str, max_lines: int = 200) -> list:
@@ -306,12 +377,19 @@ def _tail(path: str, max_lines: int = 200) -> list:
 
 
 def _tool_version(cmd: str) -> str:
+    # Spawning `gallery-dl --version` / `yt-dlp --version` imports the whole
+    # tool, so cache the answer instead of running it on every page poll.
+    cached = _TOOL_CACHE.get(cmd)
+    if cached:
+        return cached
     try:
         r = subprocess.run([cmd, "--version"], capture_output=True, text=True, timeout=15)
         out = (r.stdout or r.stderr or "").strip().splitlines()
-        return out[0].strip() if out else "missing"
+        value = out[0].strip() if out else "missing"
     except Exception:
-        return "missing"
+        value = "missing"
+    _TOOL_CACHE[cmd] = value
+    return value
 
 
 def _is_running(pid) -> bool:
@@ -626,6 +704,23 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
+def _epoch(value) -> int:
+    """Coerce a status timestamp into Unix seconds for the task float."""
+    if isinstance(value, (int, float)):
+        return int(value)
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    try:
+        return int(float(text))
+    except ValueError:
+        pass
+    try:
+        return int(datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return 0
+
+
 # ------------------------------------------------------------- routes ---
 
 @gdl_api.get("/engines")
@@ -709,7 +804,11 @@ def tasks_create():
         return jsonify({"error": str(e)[:300]}), 400
     if data.get("_cookies_raw") is not None:
         Path(os.path.join(tasks_dir(), slug, "cookies.txt")).write_bytes(data["_cookies_raw"])
-    if data.get("start"):
+    # FormData always sends `start` (possibly the string "false"), so a plain
+    # truthiness check used to launch every save/edit. Accept real booleans
+    # and the usual form-encoded truthy words only.
+    start_flag = data.get("start") is True or str(data.get("start") or "").strip().lower() in ("1", "true", "on", "yes")
+    if start_flag:
         threading.Thread(target=_run_task, args=(slug,), daemon=True).start()
     return jsonify({"ok": True, "task": _task_info(slug)})
 
@@ -927,34 +1026,43 @@ def task_urls_update(slug: str):
 
 @gdl_api.get("/task")
 def plugin_task_status():
-    """Aggregated background-task status for PluginTaskFloat."""
-    active = False
-    current = 0
-    total = 0
-    detail = ""
-    message = ""
-    started_at = 0
-    state_str = "idle"
+    """Aggregated background-task status for PluginTaskFloat.
+
+    Never call ``_task_info`` while holding ``_lock``: it takes the same lock
+    itself, and a plain Lock deadlocked the status endpoint (and every other
+    task route) as soon as a task started — which in turn filled the waitress
+    queue and stopped unrelated pages from loading.
+    """
     with _lock:
-        running_slugs = [s for s, p in _procs.items() if p.poll() is None]
-        if running_slugs:
-            active = True
-            slug = running_slugs[0]
-            info = _task_info(slug) if _task_base(slug) else {}
-            state_str = info.get("state", "running") if info else "running"
-            current = 1
-            total = max(1, len(running_slugs))
-            message = info.get("message") or f"Task {slug} running"
-            detail = slug
-            started_at = info.get("started_at", 0) if info else 0
+        running_slugs = [slug for slug, proc in _procs.items() if proc.poll() is None]
+    if not running_slugs:
+        return jsonify({
+            "active": False,
+            "state": "idle",
+            "current": 0,
+            "total": 0,
+            "detail": "",
+            "message": "",
+            "started_at": 0,
+        })
+    slug = running_slugs[0]
+    info = _task_info(slug) if _task_base(slug) else {}
+    name = info.get("name") or slug
+    progress = info.get("progress")
+    if isinstance(progress, int) and 0 <= progress <= 100:
+        current, total = progress, 100
+        message = f"{name}: {progress}%"
+    else:
+        current, total = 1, max(1, len(running_slugs))
+        message = f"{name} running"
     return jsonify({
-        "active": active,
-        "state": state_str,
+        "active": True,
+        "state": "running",
         "current": current,
         "total": total,
-        "detail": detail,
+        "detail": slug,
         "message": message,
-        "started_at": started_at,
+        "started_at": _epoch(info.get("started_at")),
     })
 
 
@@ -1303,20 +1411,11 @@ def telemetry():
             pass
         return total
 
-    images = du(downloads_dir())
+    scan = _scan_downloads()
+    images = scan["bytes"]
     meta = du(tasks_dir())
-    today = datetime.now().astimezone().date()
-    items_today = bytes_today = 0
-    try:
-        for dp, _, fns in os.walk(downloads_dir()):
-            for fn in fns:
-                fp = os.path.join(dp, fn)
-                try:
-                    st = os.stat(fp)
-                    if datetime.fromtimestamp(st.st_mtime).date() == today:
-                        items_today += 1; bytes_today += st.st_size
-                except OSError: pass
-    except OSError: pass
+    items_today = scan["today_items"]
+    bytes_today = scan["today_bytes"]
     filtered = errors = 0
     for slug in os.listdir(tasks_dir()):
         base = _task_base(slug)
@@ -1835,28 +1934,8 @@ def media_recent():
     """Newest image/video files under the downloads dir (filmstrip)."""
     if not _authed():
         return _deny()
-    exts = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm")
-    found = []
-    root = downloads_dir()
-    try:
-        for dp, _, fns in os.walk(root):
-            for fn in fns:
-                if fn.lower().endswith(exts):
-                    fp = os.path.join(dp, fn)
-                    try:
-                        st = os.stat(fp)
-                        found.append({
-                            "name": fn,
-                            "rel": os.path.relpath(fp, root),
-                            "size": st.st_size,
-                            "mtime": st.st_mtime,
-                        })
-                    except OSError:
-                        pass
-    except OSError:
-        pass
-    found.sort(key=lambda m: m["mtime"], reverse=True)
-    return jsonify({"dir": root, "media": found[:12]})
+    scan = _scan_downloads(12)
+    return jsonify({"dir": downloads_dir(), "media": scan["media"]})
 
 
 @gdl_api.get("/media/file")

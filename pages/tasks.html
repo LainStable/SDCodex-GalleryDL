@@ -306,8 +306,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     const bulk = !slug;
     const routeAction = !['start','stop'].includes(action);
     const url = action === 'delete' ? `/gdl/api/tasks/${slug}` : bulk ? '/gdl/api/tasks/actions' : routeAction ? `/gdl/api/tasks/${slug}/action` : `/gdl/api/tasks/${slug}/${action}`;
-    await fetch(url, { method, credentials: 'same-origin', ...((bulk || routeAction) ? {headers:{'Content-Type':'application/json'},body:JSON.stringify({action})} : {}) });
-    void refresh();
+    try {
+      const r = await fetch(url, { method, credentials: 'same-origin', ...((bulk || routeAction) ? {headers:{'Content-Type':'application/json'},body:JSON.stringify({action})} : {}) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || `request failed (${r.status})`);
+    } catch (e) {
+      alert(`${action.replace(/_/g, ' ')} failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      void refresh();
+    }
   }
   window.gdlAct = act;
 
@@ -426,20 +433,16 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       return `<a href="${url}" target="_blank" rel="noreferrer" class="flex items-center gap-3 rounded border border-outline-variant/20 p-2 hover:border-secondary/40">${preview}<span class="min-w-0"><span class="block truncate text-on-surface">${esc(item.name || item.rel)}</span><span class="text-[10px]">${fmtMB(Number(item.size) || 0)}</span></span></a>`;
     }).join('') : '<div>No recent downloads found for this task.</div>';
   };
-  async function refresh() {
+  let tasksBusy = false;
+  async function refreshTasks() {
+    if (tasksBusy) return;
+    tasksBusy = true;
     try {
-      const [eng, tj, tele] = await Promise.all([
-        jget('/gdl/api/engines').catch(() => null),
+      const [tj, q] = await Promise.all([
         jget('/gdl/api/tasks').catch(() => null),
-        jget('/gdl/api/telemetry').catch(() => null),
+        jget('/gdl/api/queue').catch(() => null),
       ]);
-      if (eng) {
-        $('eng-gdl').textContent = 'gallery-dl ' + (eng.gallery_dl || 'missing');
-        $('eng-ytdlp').textContent = 'yt-dlp ' + (eng.yt_dlp || 'missing');
-        $('eng-gdl-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.gallery_dl && !['missing','not found'].includes(eng.gallery_dl) ? 'bg-status-active' : 'bg-status-alert');
-        $('eng-ytdlp-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.yt_dlp && !['missing','not found'].includes(eng.yt_dlp) ? 'bg-status-active' : 'bg-status-alert');
-      }
-      const q = await jget('/gdl/api/queue').catch(() => null); if(q) $('max-concurrent').textContent=q.max_concurrent;
+      if (q) $('max-concurrent').textContent = q.max_concurrent;
       // A failed tasks fetch (backend waking, session refresh) must not wipe
       // the rendered list — keep the previous rows until a fetch succeeds.
       if (!tj || !Array.isArray(tj.tasks)) return;
@@ -466,11 +469,33 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         $('tail-state').innerHTML = '<span class="h-2 w-2 rounded-full bg-outline"></span>Waiting';
         $('term-box').innerHTML = '<div class="text-outline">pipeline idle — no tasks yet.</div>';
       }
+    } catch (e) {
+      console.error('GalleryDL task refresh error:', e);
+    } finally {
+      tasksBusy = false;
+    }
+  }
+
+  let slowBusy = false;
+  async function refreshSlow() {
+    if (slowBusy) return;
+    slowBusy = true;
+    try {
+      const [eng, tele] = await Promise.all([
+        jget('/gdl/api/engines').catch(() => null),
+        jget('/gdl/api/telemetry').catch(() => null),
+      ]);
+      if (eng) {
+        $('eng-gdl').textContent = 'gallery-dl ' + (eng.gallery_dl || 'missing');
+        $('eng-ytdlp').textContent = 'yt-dlp ' + (eng.yt_dlp || 'missing');
+        $('eng-gdl-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.gallery_dl && !['missing','not found'].includes(eng.gallery_dl) ? 'bg-status-active' : 'bg-status-alert');
+        $('eng-ytdlp-dot').className = 'h-1.5 w-1.5 rounded-full ' + (eng.yt_dlp && !['missing','not found'].includes(eng.yt_dlp) ? 'bg-status-active' : 'bg-status-alert');
+      }
       if (tele) {
         $('tele-dir').textContent = tele.images_dir || '';
         $('tele-used').textContent = `${tele.images_gb} GB used`;
         $('tele-images').textContent = `${tele.items_today} items today`;
-        $('tele-tasks').textContent = `${tasks.length} tasks`;
+        $('tele-tasks').textContent = `${taskRows.length} tasks`;
         $('tele-free').textContent = `${(tele.disk_free / 1e9).toFixed(1)} GB (${(tele.disk_total / 1e9).toFixed(1)} GB total)`;
         $('tele-bar').style.width = `${Math.min(100, Number(tele.disk_pct || 0))}%`;
       }
@@ -484,13 +509,20 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         }).join('') : '<div class="text-outline font-mono text-xs">No downloaded media found yet.</div>';
       }
     } catch (e) {
-      console.error('GalleryDL refresh error:', e);
-      const msg = e instanceof Error ? e.message : String(e);
-      $('scan-status').textContent = 'Refresh failed: ' + msg.slice(0, 60);
+      console.error('GalleryDL telemetry refresh error:', e);
+    } finally {
+      slowBusy = false;
     }
   }
+
+  async function refresh() {
+    await Promise.all([refreshTasks(), refreshSlow()]);
+  }
   void refresh();
-  setInterval(refresh, 5000);
+  // Task state is cheap and drives the table; engines/telemetry/media walk
+  // large folders, so refresh those far less often.
+  setInterval(() => void refreshTasks(), 5000);
+  setInterval(() => void refreshSlow(), 60000);
   window.addEventListener('pageshow', () => void refresh());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
 })();
