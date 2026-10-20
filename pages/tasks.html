@@ -34,14 +34,16 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 </style>
 </head>
 <body class="bg-background text-on-surface antialiased font-body">
-<div class="gdl-page mx-auto max-w-full p-4 md:p-6 flex flex-col gap-4">
+<div class="gdl-page mx-auto w-full max-w-none p-4 md:p-6 flex flex-col gap-4">
 
-  <!-- Banner -->
-  <section class="rounded-lg border border-outline-variant/30 bg-surface-container-low p-5 flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
-    <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-badge-checkpoint/60 to-transparent"></div>
-    <div class="flex flex-col gap-1.5 min-w-0">
-      <h1 class="font-display text-2xl font-bold tracking-tight truncate">Batch Scraper &amp; Media Kiosk</h1>
-      <div class="flex items-center gap-2 flex-wrap font-mono text-[11px]">
+  <!-- New task creation / edit form -->
+  <section id="new-task-form" class="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 md:p-5">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-badge-checkpoint">add_circle</span>
+        <h2 class="font-display text-base font-semibold">New Batch Scraping Job</h2>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
         <span class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container-lowest px-2 py-0.5">
           <span id="eng-gdl-dot" class="h-1.5 w-1.5 rounded-full bg-outline"></span> gallery-dl <span id="eng-gdl" class="text-secondary font-semibold">…</span>
         </span>
@@ -52,215 +54,228 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <span class="material-symbols-outlined text-xs text-status-warning">speed</span>
           <span class="text-outline">Max Concurrent:</span> <span id="max-concurrent" class="font-semibold">…</span>
         </span>
+        <a href="/api/plugins/gallery-dl/page/oauth" class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/40 bg-surface-container px-2 py-1 hover:border-badge-sdxl/60">
+          <span class="material-symbols-outlined text-xs">key</span> OAuth
+        </a>
+        <a href="/api/plugins/gallery-dl/page/kiosks" class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/40 bg-surface-container px-2 py-1 hover:border-secondary/60">
+          <span class="material-symbols-outlined text-xs text-secondary">slideshow</span> Kiosks
+        </a>
       </div>
     </div>
-    <div class="flex items-center gap-2 flex-wrap shrink-0">
-      <a href="/api/plugins/gallery-dl/page/oauth" class="rounded-lg border border-outline-variant/40 bg-surface-container px-4 py-2 font-mono text-xs flex items-center gap-2 hover:border-badge-sdxl/60">
-        <span class="material-symbols-outlined text-sm">key</span> OAuth Credentials Manager
-      </a>
-      <a href="/api/plugins/gallery-dl/page/kiosks" class="rounded-lg border border-outline-variant/50 bg-surface-container-high px-4 py-2 font-mono text-xs flex items-center gap-2">
-        <span class="material-symbols-outlined text-sm text-secondary">slideshow</span> Kiosk Slideshow Mode
-      </a>
-      <!-- New batch scraping job button now goes to the task creation form -->
-      <a href="#new-task" onclick="document.getElementById('new-task-form').scrollIntoView({behavior:'smooth',block:'start'}); document.getElementById('cName').focus(); return false;" id="new-batch-btn" class="rounded-lg bg-badge-checkpoint px-5 py-2 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20 hover:opacity-90 transition-opacity">
-        <span class="material-symbols-outlined text-sm">add_to_photos</span> New Batch Scraping Job
-      </a>
+    <form id="fCreate" class="flex flex-col gap-4" onsubmit="event.preventDefault(); createTask();">
+      <input type="hidden" name="original_slug" id="originalSlug" value=""/>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cName">Task name</label>
+          <input id="cName" name="name" type="text" placeholder="e.g. nature-batch-01" required
+            class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+          <p class="font-mono text-[10px] text-outline">Folder: <code>/data/tasks/&lt;name&gt;</code></p>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cSched">Schedule (cron)</label>
+          <div class="flex gap-2">
+            <input id="cSched" name="schedule" type="text" placeholder="*/5 * * * *  (optional)"
+              class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+            <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+              <input id="cModeManual" type="radio" name="schedule_mode" value="manual" checked class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=true; document.getElementById('cSched').placeholder='— manual / on-demand —'; document.getElementById('cSched').value=''"/>
+              <span>Manual</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+              <input id="cModeCron" type="radio" name="schedule_mode" value="cron" class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=false; document.getElementById('cSched').placeholder='*/5 * * * *';"/>
+              <span>Recurring</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cUrls">Target URLs <span class="text-outline font-normal">(one per line, max 100)</span></label>
+        <textarea id="cUrls" name="urls" rows="6" placeholder="https://example.com/feed&#10;https://reddit.com/r/…"
+          class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
+        <div class="flex items-center gap-2">
+          <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[10px] cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
+            <input type="file" id="cUrlsFile" name="urls_file" accept=".txt,.csv" class="hidden" onchange="document.getElementById('cUrlsFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload .txt file'; document.getElementById('cUrlsFileNote').textContent = this.files && this.files[0] ? '' : 'No limit on file uploads.';"/>
+            <span id="cUrlsFileLabel">Upload .txt file</span>
+          </label>
+          <span id="cUrlsFileNote" class="font-mono text-[9px] text-outline">No limit on file uploads.</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cOauth">OAuth / Cookie Profile</label>
+          <select id="cOauth" name="oauth_site" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors">
+            <option value="">— No credentials —</option>
+            <option value="deviantart">DeviantArt</option>
+            <option value="reddit">Reddit</option>
+            <option value="flickr">Flickr</option>
+            <option value="tumblr">Tumblr</option>
+            <option value="mastodon">Mastodon</option>
+            <option value="pixiv">Pixiv (requires stdin code flow)</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cCookiesFile">Cookies file (--cookies)</label>
+          <label class="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
+            <input type="file" id="cCookiesFile" name="cookies_file" accept=".txt" class="hidden" onchange="document.getElementById('cCookiesFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload cookies.txt';"/>
+            <span id="cCookiesFileLabel" class="truncate">Upload cookies.txt</span>
+          </label>
+        </div>
+        <div class="flex flex-col gap-1"><label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cTimeout">Timeout (seconds)</label><input id="cTimeout" name="timeout" type="number" min="0" placeholder="0 = no limit" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs"/></div>
+        <div class="flex items-end">
+          <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-3 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none">
+            <input id="cStart" name="start" type="checkbox" checked class="accent-[#6366f1] rounded"/>
+            <span class="font-mono text-[11px] font-medium">Run on create</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline">gallery-dl options</label>
+        <div id="cOptions" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--write-metadata"/><span>Write metadata</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--write-info-json"/><span>Save info JSON</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--write-tags"/><span>Write tags</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--mtime date"/><span>Set mtime from date</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--zip"/><span>Store in ZIP</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--download-archive archive.sqlite"/><span>Use archive DB</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--no-skip"/><span>Don't skip existing</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="-v"/><span>Verbose</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--cookies cookies.txt"/><span>Use cookies</span></label>
+          <label class="gdl-opt inline-flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[11px] cursor-pointer hover:border-badge-checkpoint/40 select-none"><input type="checkbox" class="accent-[#6366f1] rounded" data-flag="--cache-file gallery-dl-cache.sqlite3"/><span>OAuth cache</span></label>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cCmdBase">Command (--config)</label>
+        <input id="cCmdBase" type="text" placeholder="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf --destination /data/downloads"
+          class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+        <p class="font-mono text-[10px] text-outline truncate">Runs: <code id="cCmdPreview" class="text-secondary">gallery-dl --input-file urls.txt</code></p>
+        <input type="hidden" id="cCmdHidden" name="command" value=""/>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" class="rounded-lg bg-badge-checkpoint px-5 py-2.5 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20 hover:opacity-90 transition-opacity">
+          <span class="material-symbols-outlined text-sm">add_circle</span> Create Task
+        </button>
+        <button type="button" id="cReset" class="rounded-lg border border-outline-variant/40 px-4 py-2.5 font-mono text-xs text-outline hover:text-white">Reset</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Queue table -->
+  <section class="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
+        <h2 class="font-display text-base font-semibold">Active Ingestion Pipeline &amp; Queue</h2>
+        <span id="active-count" class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">…</span>
+      </div>
+      <div class="flex items-center gap-1 text-outline">
+        <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Pause All" onclick="act('', 'pause_all')"><span class="material-symbols-outlined text-sm">pause</span></button>
+        <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Clear Completed" onclick="if(!confirm('Clear completed tasks?'))return; act('', 'clear_completed')"><span class="material-symbols-outlined text-sm">clear_all</span></button>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 border-b border-outline-variant/20 px-4 py-3">
+      <input id="task-search" type="search" placeholder="Search tasks…" aria-label="Search tasks"
+        class="min-w-[12rem] flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:border-badge-checkpoint focus:outline-none"/>
+      <div id="task-filters" class="flex flex-wrap gap-1.5" aria-label="Filter tasks">
+        <button type="button" data-filter="all" class="task-filter active rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1 font-mono text-[10px] text-primary">All</button>
+        <button type="button" data-filter="running" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Running</button>
+        <button type="button" data-filter="paused" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Paused</button>
+        <button type="button" data-filter="error" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Errors</button>
+        <button type="button" data-filter="idle" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Idle</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto scroll-thin">
+      <table class="w-full text-left border-collapse font-mono text-xs">
+        <thead><tr class="border-b border-outline-variant/20 bg-surface-container-lowest/30 text-outline font-mono text-[11px] uppercase">
+          <th class="py-2.5 px-5">Task</th>
+          <th class="py-2.5 px-5">Schedule</th>
+          <th class="py-2.5 px-5 w-48">Status</th>
+          <th class="py-2.5 px-5">Started</th>
+          <th class="py-2.5 px-5">Commands</th>
+          <th class="py-2.5 px-5">Source URLs</th>
+          <th class="py-2.5 px-5 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="job-rows" class="divide-y divide-outline-variant/20">
+          <tr id="jobs-empty"><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — create one above.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <section id="task-details" class="hidden border-t border-outline-variant/30 bg-surface-container-lowest/40 p-5">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h3 id="detail-title" class="font-display font-semibold">Task details</h3><p id="detail-subtitle" class="mt-1 font-mono text-[10px] text-outline"></p></div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="detail-media-btn" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 font-mono text-xs text-secondary hover:border-secondary/60">View media</button>
+          <button type="button" onclick="document.getElementById('task-details').classList.add('hidden')" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 font-mono text-xs text-outline hover:text-white">Close</button>
+        </div>
+      </div>
+      <div id="detail-stats" class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"></div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+          <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Run history</h4>
+          <div id="detail-history" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
+        </div>
+        <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+          <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Recent downloads</h4>
+          <div id="detail-recent" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+        <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Log archive</h4>
+        <div id="detail-archive" class="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-outline">Loading…</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- Log readout -->
+  <section class="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
+    <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span><span id="tail-task" class="text-outline"></span></div>
+      <div class="flex items-center gap-3">
+        <a id="tail-download" class="font-mono text-[10px] text-secondary hover:underline hidden" download>Download log</a>
+        <div id="tail-state" class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</div>
+      </div>
+    </div>
+    <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-72 scroll-thin flex flex-col gap-1">
+      <div class="text-outline">pipeline idle — no tasks yet.</div>
     </div>
   </section>
 
-  <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-    <!-- Main tasks column -->
-    <div class="col-span-1 xl:col-span-8 min-w-0 flex flex-col gap-4">
-
-      <!-- New task creation form -->
-      <section id="new-task-form" class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="material-symbols-outlined text-badge-checkpoint">add_circle</span>
-          <h2 class="font-display text-base font-semibold">New Batch Scraping Job</h2>
-        </div>
-        <form id="fCreate" class="flex flex-col gap-4" onsubmit="event.preventDefault(); createTask();">
-          <input type="hidden" name="original_slug" id="originalSlug" value=""/>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="flex flex-col gap-1">
-              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cName">Task name</label>
-              <input id="cName" name="name" type="text" placeholder="e.g. nature-batch-01" required
-                class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm focus:outline-none focus:border-badge-checkpoint transition-colors"/>
-              <p class="font-mono text-[10px] text-outline">Folder: <code>/data/tasks/&lt;name&gt;</code></p>
-            </div>
-            <div class="flex flex-col gap-1">
-              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cSched">Schedule (cron)</label>
-              <div class="flex gap-2">
-                <input id="cSched" name="schedule" type="text" placeholder="*/5 * * * *  (optional)"
-                  class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
-                <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
-                  <input id="cModeManual" type="radio" name="schedule_mode" value="manual" checked class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=true; document.getElementById('cSched').placeholder='— manual / on-demand —'; document.getElementById('cSched').value=''"/>
-                  <span>Manual</span>
-                </label>
-                <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
-                  <input id="cModeCron" type="radio" name="schedule_mode" value="cron" class="accent-[#6366f1]" onclick="document.getElementById('cSched').disabled=false; document.getElementById('cSched').placeholder='*/5 * * * *';"/>
-                  <span>Recurring</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cUrls">Target URLs <span class="text-outline font-normal">(one per line, max 100)</span></label>
-            <textarea id="cUrls" name="urls" rows="6" placeholder="https://example.com/feed&#10;https://reddit.com/r/…"
-              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
-            <div class="flex items-center gap-2">
-              <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2.5 py-1.5 font-mono text-[10px] cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
-                <input type="file" id="cUrlsFile" name="urls_file" accept=".txt,.csv" class="hidden" onchange="document.getElementById('cUrlsFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload .txt file'; document.getElementById('cUrlsFileNote').textContent = this.files && this.files[0] ? '' : 'No limit on file uploads.';"/>
-                <span id="cUrlsFileLabel">Upload .txt file</span>
-              </label>
-              <span id="cUrlsFileNote" class="font-mono text-[9px] text-outline">No limit on file uploads.</span>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cConfig">Config file (--config)</label>
-            <input id="cConfig" name="command" type="text" placeholder="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf"
-              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors" value="gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf"/>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div class="flex flex-col gap-1">
-              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cOauth">OAuth / Cookie Profile</label>
-              <select id="cOauth" name="oauth_site" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors">
-                <option value="">— No credentials —</option>
-                <option value="deviantart">DeviantArt</option>
-                <option value="reddit">Reddit</option>
-                <option value="flickr">Flickr</option>
-                <option value="tumblr">Tumblr</option>
-                <option value="mastodon">Mastodon</option>
-                <option value="pixiv">Pixiv (requires stdin code flow)</option>
-              </select>
-            </div>
-            <div class="flex flex-col gap-1"><label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cTimeout">Timeout (seconds)</label><input id="cTimeout" name="timeout" type="number" min="0" placeholder="0 = no limit" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs"/></div>
-            <div class="flex flex-col gap-1">
-              <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="cCookie">Cookie File (--cookies)</label>
-              <input id="cCookie" name="cookie_file" type="text" placeholder="cookies-reddit.txt"
-                class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
-            </div>
-            <div class="flex items-end">
-              <label class="flex items-center gap-2 rounded-[3px] border border-outline-variant/30 bg-surface-container px-3 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none">
-                <input id="cStart" name="start" type="checkbox" checked class="accent-[#6366f1] rounded"/>
-                <span class="font-mono text-[11px] font-medium">Run on create</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="flex gap-2">
-            <button type="submit" class="rounded-lg bg-badge-checkpoint px-5 py-2.5 font-mono text-xs font-semibold text-white flex items-center gap-2 ring-1 ring-white/20 hover:opacity-90 transition-opacity">
-              <span class="material-symbols-outlined text-sm">add_circle</span> Create Task
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Queue table -->
-      <div class="col-span-1 xl:col-span-8 min-w-0 rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-        <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-badge-checkpoint">queue</span>
-            <h2 class="font-display text-base font-semibold">Active Ingestion Pipeline &amp; Queue</h2>
-            <span id="active-count" class="rounded-[3px] border border-badge-checkpoint/30 bg-badge-checkpoint/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">…</span>
-          </div>
-          <div class="flex items-center gap-1 text-outline">
-            <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Pause All" onclick="act('', 'pause_all')"><span class="material-symbols-outlined text-sm">pause</span></button>
-            <button class="p-1 rounded hover:bg-surface-container hover:text-white" title="Clear Completed" onclick="if(!confirm('Clear completed tasks?'))return; act('', 'clear_completed')"><span class="material-symbols-outlined text-sm">clear_all</span></button>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 border-b border-outline-variant/20 px-4 py-3">
-          <input id="task-search" type="search" placeholder="Search tasks…" aria-label="Search tasks"
-            class="min-w-[12rem] flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:border-badge-checkpoint focus:outline-none"/>
-          <div id="task-filters" class="flex flex-wrap gap-1.5" aria-label="Filter tasks">
-            <button type="button" data-filter="all" class="task-filter active rounded-[3px] border border-badge-checkpoint/50 bg-badge-checkpoint/15 px-2.5 py-1 font-mono text-[10px] text-primary">All</button>
-            <button type="button" data-filter="running" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Running</button>
-            <button type="button" data-filter="paused" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Paused</button>
-            <button type="button" data-filter="error" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Errors</button>
-            <button type="button" data-filter="idle" class="task-filter rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-outline">Idle</button>
-          </div>
-        </div>
-        <div class="overflow-x-auto scroll-thin">
-          <table class="w-full text-left border-collapse font-mono text-xs">
-            <thead><tr class="border-b border-outline-variant/20 bg-surface-container-lowest/30 text-outline font-mono text-[11px] uppercase">
-              <th class="py-2.5 px-5">Task</th>
-              <th class="py-2.5 px-5">Schedule</th>
-              <th class="py-2.5 px-5 w-48">Status</th>
-              <th class="py-2.5 px-5">Started</th>
-              <th class="py-2.5 px-5">Commands</th>
-              <th class="py-2.5 px-5">Source URLs</th>
-              <th class="py-2.5 px-5 text-right">Actions</th>
-            </tr></thead>
-            <tbody id="job-rows" class="divide-y divide-outline-variant/20">
-              <tr id="jobs-empty"><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — create one above.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <section id="task-details" class="hidden border-t border-outline-variant/30 bg-surface-container-lowest/40 p-5">
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div><h3 id="detail-title" class="font-display font-semibold">Task details</h3><p id="detail-subtitle" class="mt-1 font-mono text-[10px] text-outline"></p></div>
-            <button type="button" onclick="document.getElementById('task-details').classList.add('hidden')" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 font-mono text-xs text-outline hover:text-white">Close</button>
-          </div>
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
-              <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Run history</h4>
-              <div id="detail-history" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
-            </div>
-            <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
-              <h4 class="mb-3 font-mono text-[10px] uppercase tracking-wider text-outline">Recent downloads</h4>
-              <div id="detail-recent" class="max-h-64 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Right: terminal + telemetry -->
-      <div class="col-span-1 xl:col-span-4 min-w-0 flex flex-col gap-6">
-        <!-- Terminal -->
-        <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
-            <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
-            <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-status-active">terminal</span><span class="font-semibold">gallery-dl.stdout.log</span></div>
-            <div id="tail-state" class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</div>
-          </div>
-          <div id="term-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-56 scroll-thin flex flex-col gap-1">
-            <div class="text-outline">pipeline idle — no tasks yet.</div>
-          </div>
-        </div>
-        <!-- Telemetry -->
-        <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
-            <span id="tele-device" class="font-mono text-[11px] font-bold text-outline">Filesystem</span>
-          </div>
-          <div class="flex justify-between font-mono text-[11px]"><span id="tele-dir">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
-          <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
-            <div id="tele-bar" class="bg-badge-checkpoint h-full" style="width:0%"></div>
-          </div>
-          <div class="flex items-center justify-between font-mono text-[10px] text-outline">
-            <span id="tele-images">…</span><span id="tele-tasks">…</span>
-          </div>
-          <div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px]">
-            <span class="text-outline">Free capacity:</span><span id="tele-free" class="text-status-active font-semibold">—</span>
-          </div>
-        </div>
-      </div>
+  <!-- Telemetry -->
+  <section class="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2"><span class="material-symbols-outlined text-status-warning">pie_chart</span><span class="font-display font-semibold">Partition Telemetry</span></div>
+      <span id="tele-device" class="font-mono text-[11px] font-bold text-outline">Filesystem</span>
     </div>
-  </div>
+    <div class="flex flex-wrap justify-between gap-2 font-mono text-[11px]"><span id="tele-dir" class="truncate">…</span><span class="text-outline"><strong id="tele-used" class="text-white">…</strong></span></div>
+    <div class="h-2 rounded-full bg-surface-container-highest overflow-hidden flex">
+      <div id="tele-bar" class="bg-badge-checkpoint h-full" style="width:0%"></div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-[11px]">
+      <div class="rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-3 py-2"><span class="block text-[10px] uppercase text-outline">Items today</span><span id="tele-images" class="text-white">…</span></div>
+      <div class="rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-3 py-2"><span class="block text-[10px] uppercase text-outline">Tasks</span><span id="tele-tasks" class="text-white">…</span></div>
+      <div class="rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-3 py-2"><span class="block text-[10px] uppercase text-outline">Today's bytes</span><span id="tele-today" class="text-white">…</span></div>
+      <div class="rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-3 py-2"><span class="block text-[10px] uppercase text-outline">Free capacity</span><span id="tele-free" class="text-status-active font-semibold">—</span></div>
+    </div>
+  </section>
 
   <!-- Recent scraped filmstrip -->
-  <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-4">
-    <div class="flex items-center justify-between">
+  <section class="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">photo_library</span>
         <h2 class="font-display font-semibold">Recent Scraped Media Filmstrip</h2>
         <span id="media-dir" class="font-mono text-[11px] text-outline">Downloads</span></div>
-      <span class="font-mono text-[11px] text-outline">Sort: Ingest Time (Newest)</span>
+      <div class="flex items-center gap-3">
+        <button type="button" id="film-show-all" class="hidden rounded-[3px] border border-outline-variant/40 px-2.5 py-1 font-mono text-[10px] text-secondary hover:border-secondary/60">Show all media</button>
+        <span class="font-mono text-[11px] text-outline">Sort: Ingest Time (Newest)</span>
+      </div>
     </div>
-    <div id="film-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+    <div id="film-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
       <div class="text-outline font-mono text-xs">Loading recent media…</div>
     </div>
-  </div>
+  </section>
 </div>
 
 <script>
@@ -268,6 +283,53 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtMB = (b) => (b / 1048576).toFixed(1) + ' MB';
+  const fmtBytes = (b) => {
+    const n = Number(b) || 0;
+    if (n >= 1073741824) return (n / 1073741824).toFixed(2) + ' GB';
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  };
+  const fmtDur = (s) => {
+    const v = Number(s) || 0;
+    if (v < 60) return Math.round(v) + 's';
+    if (v < 3600) return Math.round(v / 60) + 'm';
+    return (v / 3600).toFixed(1) + 'h';
+  };
+  const mediaUrl = (rel) => '/gdl/api/media/file?path=' + encodeURIComponent(rel);
+
+  const DEFAULT_CMD = 'gallery-dl --input-file urls.txt --config /data/config/gallery-dl.conf --destination /data/downloads';
+  const FLAG_INPUTS = Array.from(document.querySelectorAll('#cOptions input[data-flag]'));
+
+  // ── Command composer ────────────────────────────────────────────────
+  // The task folder stores one command line. The option chips toggle the
+  // gallery-dl flags inside it, so editing a task shows the same state.
+  function buildCommand() {
+    const base = ($('cCmdBase').value || '').trim() || DEFAULT_CMD;
+    let cmd = base;
+    FLAG_INPUTS.forEach((cb) => {
+      if (cb.checked && !cmd.includes(cb.dataset.flag)) cmd += ' ' + cb.dataset.flag;
+    });
+    $('cCmdHidden').value = cmd;
+    $('cCmdPreview').textContent = cmd;
+    return cmd;
+  }
+  function splitCommand(command) {
+    let base = String(command || DEFAULT_CMD);
+    FLAG_INPUTS.forEach((cb) => {
+      const flag = cb.dataset.flag;
+      const pattern = new RegExp('(^|\\s)' + flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=\\s|$)');
+      if (pattern.test(base)) { cb.checked = true; base = base.replace(pattern, ' '); }
+      else cb.checked = false;
+    });
+    return base.replace(/\s+/g, ' ').trim();
+  }
+  $('cCmdBase').addEventListener('input', buildCommand);
+  FLAG_INPUTS.forEach((cb) => cb.addEventListener('change', buildCommand));
+  $('cCmdBase').value = DEFAULT_CMD;
+  buildCommand();
+
+  // ── Task filters ────────────────────────────────────────────────────
   let taskFilter = 'all';
   let taskRows = [];
   const search = $('task-search');
@@ -288,6 +350,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     });
     applyTaskFilters();
   }));
+
   const STATE = {
     running: ['Downloading', 'border-status-active/40 bg-status-active/10 text-status-active', true],
     done: ['Finished', 'border-status-active/30 bg-status-active/10 text-status-active', false],
@@ -296,6 +359,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     paused: ['Paused', 'border-status-warning/40 bg-status-warning/10 text-status-warning', false],
     error: ['Error', 'border-status-alert/40 bg-status-alert/10 text-status-alert', false],
   };
+
   async function jget(url) {
     const r = await fetch(url, { credentials: 'same-origin' });
     if (!r.ok) throw new Error(url + ' ' + r.status);
@@ -328,7 +392,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     const payload = {
       name: (fd.get('name') || '').trim(),
       urls: urlLines,
-      command: fd.get('command') || '',
+      command: buildCommand(),
       start: fd.get('start') === 'on' || fd.get('start') === 'true',
       schedule: fd.get('schedule_mode') === 'cron' ? (fd.get('schedule') || '').trim() || '' : '',
       oauth_site: fd.get('oauth_site') || '',
@@ -337,6 +401,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       timeout: fd.get('timeout') || '',
     };
     const upload = fd.get('urls_file');
+    const cookies = fd.get('cookies_file');
     if (!payload.name || (!payload.urls.length && !(upload && upload.size))) {
       alert('Task name and at least one URL are required.');
       btn.disabled = false;
@@ -346,16 +411,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       const body = new FormData();
       Object.entries(payload).forEach(([k,v]) => body.append(k, Array.isArray(v) ? v.join('\n') : String(v ?? '')));
       if (upload && upload.size) body.set('urls_file', upload);
+      if (cookies && cookies.size) body.set('cookies_file', cookies);
       const r = await fetch('/gdl/api/tasks', { method: 'POST', credentials: 'same-origin', body });
       const d = await r.json();
       if (!r.ok || d.error) {
         alert('Error: ' + (d.error || r.status));
       } else {
-        // Success: refresh list + show the task
         await refresh();
-        form.reset(); $('originalSlug').value = ''; $('cModeManual').checked = true; $('cSched').disabled = true; $('cSched').value = ''; form.querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">add_circle</span> Create Task';
-        // Scroll to the table
-        document.querySelector('.gdl-page > div.grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resetForm();
+        document.querySelector('.gdl-page').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     } catch (e) {
       alert('Request failed: ' + (e.message || e));
@@ -365,30 +429,47 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   }
   window.createTask = createTask;
 
+  function resetForm() {
+    const form = $('fCreate');
+    form.reset();
+    $('originalSlug').value = '';
+    $('cModeManual').checked = true;
+    $('cSched').disabled = true;
+    $('cSched').value = '';
+    $('cCmdBase').value = DEFAULT_CMD;
+    $('cCookiesFileLabel').textContent = 'Upload cookies.txt';
+    $('cUrlsFileLabel').textContent = 'Upload .txt file';
+    FLAG_INPUTS.forEach((cb) => { cb.checked = false; });
+    buildCommand();
+    form.querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">add_circle</span> Create Task';
+  }
+  $('cReset').addEventListener('click', resetForm);
+
   function row(t) {
     const [label, cls, live] = STATE[t.state] || STATE.idle;
     const pct = t.progress;
     const scheduleDisplay = t.schedule ? '<span class="rounded-[3px] border border-outline-variant/20 bg-surface-container px-1.5 font-mono text-[9px] text-secondary">' + esc(t.schedule) + '</span><span class="mt-1 block text-[9px] text-outline">Next: ' + esc(t.next_run ? new Date(t.next_run).toLocaleString() : 'pending') + '</span>' : '<span class="text-outline/40">— manual —</span>';
     const bar = pct != null
       ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
-      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 bg-secondary animate-pulse rounded-full"></div>' : ''}</div>`;
+      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(label || t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 bg-secondary animate-pulse rounded-full"></div>' : ''}</div>`;
     const btns = (t.state === 'running'
       ? `<button onclick="gdlAct('${t.slug}','stop')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Stop"><span class="material-symbols-outlined text-xs">stop</span></button>`
       : `<button onclick="gdlAct('${t.slug}','start')" class="p-1 rounded hover:bg-surface-container hover:text-status-active" title="Run now"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`) +
       `<button onclick="gdlAct('${t.slug}','pause')" class="p-1 rounded hover:bg-surface-container hover:text-status-warning" title="Pause or resume"><span class="material-symbols-outlined text-xs">pause_circle</span></button><button onclick="gdlAct('${t.slug}','clear_logs')" class="p-1 rounded hover:bg-surface-container" title="Clear task logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>` +
       (t.has_archive ? `<button onclick="gdlAct('${t.slug}','delete_archive')" class="p-1 rounded hover:bg-surface-container" title="Remove download archive"><span class="material-symbols-outlined text-xs">database</span></button>` : '') +
       (t.has_cookies ? `<button onclick="gdlAct('${t.slug}','delete_cookies')" class="p-1 rounded hover:bg-surface-container" title="Remove task cookies"><span class="material-symbols-outlined text-xs">cookie</span></button>` : '') +
-      `<button onclick="showTaskDetails('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="History and recent downloads"><span class="material-symbols-outlined text-xs">history</span></button><button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="${location.pathname.replace(/tasks(?:\.html)?$/, 'logs')}?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
+      `<button onclick="showTaskMedia('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Recent media from this task"><span class="material-symbols-outlined text-xs">photo_library</span></button><button onclick="showTaskDetails('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Stats, history and recent downloads"><span class="material-symbols-outlined text-xs">monitoring</span></button><button onclick="editTask('${t.slug}')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="logs?task=${encodeURIComponent(t.slug)}" class="p-1 rounded hover:bg-surface-container hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
     return `<tr data-task="${esc(`${t.name || ''} ${t.slug || ''} ${t.command || ''}`).toLowerCase()}" data-state="${esc(t.state || 'idle')}" class="hover:bg-slate-surface/30 transition-colors">
       <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
       <td class="py-3 px-5">${scheduleDisplay}</td>
       <td class="py-3 px-5">${bar}</td>
-      <td class="py-3 px-5 text-[10px] text-outline">${t.started_at ? esc(t.started_at.slice(0,16).replace('T',' ')) : '—'}</td>
-      <td class="py-3 px-5"><span class="font-mono text-[10px] text-outline truncate block max-w-[10rem]">${esc(t.command || 'gallery-dl --input-file urls.txt')}</span></td>
+      <td class="py-3 px-5 text-[10px] text-outline">${t.started_at ? esc(String(t.started_at).slice(0,16).replace('T',' ')) : '—'}</td>
+      <td class="py-3 px-5"><span class="font-mono text-[10px] text-outline truncate block max-w-[10rem]" title="${esc(t.command || '')}">${esc(t.command || 'gallery-dl --input-file urls.txt')}</span></td>
       <td class="py-3 px-5"><span class="font-mono text-[10px] text-outline">${t.urls || 0}</span></td>
       <td class="py-3 px-5 text-right"><div class="flex justify-end gap-1 text-on-surface-variant">${btns}<button onclick="if(!confirm('Delete this task and its folder?'))return;gdlAct('${t.slug}','delete')" class="p-1 rounded hover:bg-surface-container hover:text-status-alert" title="Delete"><span class="material-symbols-outlined text-xs">delete_forever</span></button></div></td>
     </tr>`;
   }
+
   window.editTask = async (slug) => {
     try {
       const [t, urls] = await Promise.all([
@@ -399,11 +480,20 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         alert('Task not found: ' + slug);
         return;
       }
-      $('originalSlug').value = slug; $('cName').value = t.name || slug; $('cUrls').value = urls?.content || ''; $('cConfig').value = t.command || '';
-      $('cCookie').value = t.cookie_path || ''; $('cOauth').value = t.oauth_site || ''; $('cTimeout').value = t.timeout || '';
-      $('cSched').disabled = !t.schedule; $('cSched').value = t.schedule || '';
-      $('cModeCron').checked = !!t.schedule; $('cModeManual').checked = !t.schedule;
+      $('originalSlug').value = slug;
+      $('cName').value = t.name || slug;
+      $('cUrls').value = urls?.content || '';
+      $('cCmdBase').value = splitCommand(t.command || DEFAULT_CMD);
+      $('cOauth').value = t.oauth_site || '';
+      $('cTimeout').value = t.timeout || '';
+      $('cCookiesFileLabel').textContent = t.has_cookies ? 'cookies.txt present — replace' : 'Upload cookies.txt';
+      $('cSched').disabled = !t.schedule;
+      $('cSched').value = t.schedule || '';
+      $('cSched').placeholder = t.schedule ? '*/5 * * * *' : '— manual / on-demand —';
+      $('cModeCron').checked = !!t.schedule;
+      $('cModeManual').checked = !t.schedule;
       $('cStart').checked = false;
+      buildCommand();
       $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
       $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
     } catch (e) {
@@ -411,28 +501,110 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       console.error('editTask error:', e);
     }
   };
+
+  function statCard(label, value) {
+    return `<div class="rounded-lg border border-outline-variant/25 bg-surface-container-low px-3 py-2">
+      <span class="block font-mono text-[10px] uppercase tracking-wider text-outline">${esc(label)}</span>
+      <span class="font-mono text-sm text-white">${esc(value)}</span></div>`;
+  }
+
+  let detailSlug = null;
   window.showTaskDetails = async (slug) => {
     const task = taskRows.find((item) => item.slug === slug);
     if (!task) return;
+    detailSlug = slug;
     $('task-details').classList.remove('hidden');
     $('detail-title').textContent = task.name || slug;
-    $('detail-subtitle').textContent = `${slug} · ${task.state || 'idle'} · ${task.urls || 0} source URLs`;
+    $('detail-subtitle').textContent = `${slug} · ${task.state || 'idle'} · ${task.urls || 0} source URLs · ${task.schedule ? 'cron ' + task.schedule : 'manual'}`;
+    $('detail-stats').innerHTML = '';
     $('detail-history').textContent = 'Loading…';
     $('detail-recent').textContent = 'Loading…';
     $('task-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const [history, recent] = await Promise.all([
+    const [history, recent, archived] = await Promise.all([
       jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/history`).catch(() => null),
       jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/recent`).catch(() => null),
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archived`).catch(() => null),
     ]);
     const runs = history?.runs || [];
-    $('detail-history').innerHTML = runs.length ? runs.map((run) => `<div class="flex items-center justify-between gap-3 border-b border-outline-variant/15 pb-2"><span class="${run.success ? 'text-status-active' : 'text-status-alert'}">${run.success ? 'Completed' : 'Failed'} · exit ${Number(run.exit) || 0}</span><span>${esc(run.ts || '—')} · ${Number(run.duration || 0)}s</span></div>`).join('') : '<div>No recorded runs yet.</div>';
+    const ok = runs.filter((run) => run.success).length;
+    const avg = runs.length ? runs.reduce((sum, run) => sum + (Number(run.duration) || 0), 0) / runs.length : 0;
+    const last = runs[0];
+    $('detail-stats').innerHTML = [
+      statCard('Runs', String(runs.length)),
+      statCard('Success', runs.length ? Math.round((ok / runs.length) * 100) + '%' : '—'),
+      statCard('Avg duration', runs.length ? fmtDur(avg) : '—'),
+      statCard('Last run', last?.ts ? String(last.ts).slice(0, 16).replace('T', ' ') : 'never'),
+    ].join('');
+    $('detail-history').innerHTML = runs.length ? runs.map((run) => {
+      const result = run.stopped
+        ? '<span class="text-status-warning">Stopped</span>'
+        : run.success ? '<span class="text-status-active">Completed</span>' : '<span class="text-status-alert">Failed</span>';
+      return `<div class="flex items-center justify-between gap-3 border-b border-outline-variant/15 pb-2"><span>${result} · exit ${Number(run.exit) || 0}</span><span class="text-outline">${esc(run.ts || '—')} · ${fmtDur(run.duration)}</span></div>`;
+    }).join('') : '<div>No recorded runs yet.</div>';
     const items = recent?.items || [];
     $('detail-recent').innerHTML = items.length ? items.map((item) => {
-      const url = item.url || '/gdl/api/media/file?path=' + encodeURIComponent(item.rel || '');
-      const preview = item.is_image ? `<img src="${url}" loading="lazy" alt="" class="h-12 w-12 rounded object-cover">` : '<span class="material-symbols-outlined text-secondary">movie</span>';
+      const url = item.url || mediaUrl(item.rel || '');
+      const preview = item.is_image
+        ? `<img src="${url}" loading="lazy" alt="" class="h-12 w-12 shrink-0 rounded bg-[#070a10] object-contain">`
+        : '<span class="material-symbols-outlined text-secondary">movie</span>';
       return `<a href="${url}" target="_blank" rel="noreferrer" class="flex items-center gap-3 rounded border border-outline-variant/20 p-2 hover:border-secondary/40">${preview}<span class="min-w-0"><span class="block truncate text-on-surface">${esc(item.name || item.rel)}</span><span class="text-[10px]">${fmtMB(Number(item.size) || 0)}</span></span></a>`;
     }).join('') : '<div>No recent downloads found for this task.</div>';
+    const files = archived?.files || [];
+    $('detail-archive').innerHTML = files.length ? files.map((file) => {
+      // logs-2026-09-26T200908.txt -> 2026-09-26 20:09:08
+      const stamp = String(file.name || '').replace(/^logs-/, '').replace(/\.txt$/, '')
+        .replace('T', ' ').replace(/(\d{2})(\d{2})(\d{2})$/, '$1:$2:$3');
+      const href = `/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archive/${encodeURIComponent(file.name)}`;
+      return `<a href="${href}" class="text-secondary hover:underline">${esc(stamp)} <span class="text-outline">(${fmtBytes(file.size)})</span></a>`;
+    }).join('') : '<span>No archived logs yet.</span>';
   };
+  $('detail-media-btn').addEventListener('click', () => { if (detailSlug) showTaskMedia(detailSlug); });
+
+  // ── Filmstrip ───────────────────────────────────────────────────────
+  let filmTask = null;
+  function filmCard(item) {
+    const rel = item.rel || '';
+    const url = item.url || mediaUrl(rel);
+    const name = item.name || rel;
+    const isVideo = item.is_video ?? /\.(mp4|webm|mov|m4v|mkv)$/i.test(name);
+    const ext = (name.split('.').pop() || '').toUpperCase();
+    const size = item.size != null ? fmtBytes(item.size) : '';
+    const when = item.mtime ? new Date(item.mtime * 1000).toLocaleString() : '';
+    return `<a href="${url}" target="_blank" rel="noreferrer" class="group flex flex-col overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container-lowest hover:border-secondary/50">
+      <div class="relative flex h-44 items-center justify-center bg-[#070a10]">
+        ${isVideo
+          ? `<video src="${url}" muted preload="metadata" class="max-h-full max-w-full"></video>`
+          : `<img src="${url}" loading="lazy" alt="${esc(name)}" class="max-h-full max-w-full object-contain">`}
+        <span class="absolute left-2 top-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary">${esc(ext)}</span>
+      </div>
+      <div class="min-w-0 p-3">
+        <span class="block truncate text-sm font-medium" title="${esc(name)}">${esc(name)}</span>
+        <span class="font-mono text-[11px] text-outline">${size}${size && when ? ' · ' : ''}${esc(when)}</span>
+      </div>
+    </a>`;
+  }
+  function renderFilm(items, label) {
+    $('media-dir').textContent = label || 'Downloads';
+    $('film-show-all').classList.toggle('hidden', !filmTask);
+    $('film-grid').innerHTML = items.length
+      ? items.map(filmCard).join('')
+      : `<div class="col-span-full font-mono text-xs text-outline">${filmTask ? 'No media found for this task yet.' : 'No downloaded media found yet.'}</div>`;
+  }
+  window.showTaskMedia = async (slug) => {
+    const task = taskRows.find((item) => item.slug === slug);
+    filmTask = { slug, name: task?.name || slug };
+    $('film-grid').innerHTML = '<div class="col-span-full font-mono text-xs text-outline">Loading task media…</div>';
+    const data = await jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/recent`).catch(() => null);
+    if (filmTask?.slug !== slug) return;
+    renderFilm(data?.items || [], `Task: ${filmTask.name}`);
+    document.querySelector('#film-grid').closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  $('film-show-all').addEventListener('click', async () => {
+    filmTask = null;
+    const mj = await jget('/gdl/api/media/recent').catch(() => null);
+    renderFilm(mj?.media || [], mj?.dir || 'Downloads');
+  });
+
   let tasksBusy = false;
   async function refreshTasks() {
     if (tasksBusy) return;
@@ -450,22 +622,29 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       const active = tasks.filter((t) => t.state === 'running').length;
       $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
       $('job-rows').innerHTML = tasks.length === 0
-        ? '<tr><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — press "New Batch Scraping Job" above to create one.</td></tr>'
+        ? '<tr><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — fill in the form above to create one.</td></tr>'
         : tasks.map(row).join('');
       taskRows = tasks;
+      $('tele-tasks').textContent = `${tasks.length} tasks`;
       applyTaskFilters();
       const focus = tasks.find((t) => t.state === 'running') || tasks[0];
       if (focus) {
+        $('tail-task').textContent = '· ' + (focus.name || focus.slug);
+        const link = $('tail-download');
+        link.href = `/gdl/api/tasks/${encodeURIComponent(focus.slug)}/logs/download`;
+        link.classList.remove('hidden');
         $('tail-state').innerHTML = `<span class="h-2 w-2 rounded-full ${focus.state==='running'?'bg-status-active animate-ping':'bg-outline'}"></span>${focus.state==='running'?'Tailing':'Idle'}`;
-        const lj = await jget(`/gdl/api/tasks/${focus.slug}/log?lines=40`).catch(() => null);
+        const lj = await jget(`/gdl/api/tasks/${focus.slug}/log?lines=60`).catch(() => null);
         if (lj && lj.lines) {
-          $('term-box').innerHTML = lj.lines.slice(-24).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
+          $('term-box').innerHTML = lj.lines.slice(-40).map((l) => `<div class="text-outline">${esc(l)}</div>`).join('')
             + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(focus.slug) + '</span></div>';
           $('term-box').scrollTop = $('term-box').scrollHeight;
         } else {
           $('term-box').innerHTML = '<div class="text-outline">tail -f ' + esc(focus.slug) + ' (log loading)</div>';
         }
       } else {
+        $('tail-task').textContent = '';
+        $('tail-download').classList.add('hidden');
         $('tail-state').innerHTML = '<span class="h-2 w-2 rounded-full bg-outline"></span>Waiting';
         $('term-box').innerHTML = '<div class="text-outline">pipeline idle — no tasks yet.</div>';
       }
@@ -494,19 +673,17 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       if (tele) {
         $('tele-dir').textContent = tele.images_dir || '';
         $('tele-used').textContent = `${tele.images_gb} GB used`;
-        $('tele-images').textContent = `${tele.items_today} items today`;
-        $('tele-tasks').textContent = `${taskRows.length} tasks`;
+        $('tele-images').textContent = `${tele.items_today} items`;
+        $('tele-today').textContent = fmtBytes(tele.bytes_today || 0);
         $('tele-free').textContent = `${(tele.disk_free / 1e9).toFixed(1)} GB (${(tele.disk_total / 1e9).toFixed(1)} GB total)`;
         $('tele-bar').style.width = `${Math.min(100, Number(tele.disk_pct || 0))}%`;
       }
-      const mj = await jget('/gdl/api/media/recent').catch(() => null);
-      if (mj) {
-        $('media-dir').textContent = mj.dir || 'Downloads';
-        $('film-grid').innerHTML = mj.media.length ? mj.media.map(m => {
-          const url = '/gdl/api/media/file?path=' + encodeURIComponent(m.rel);
-          const video = /\.(mp4|webm|mov|m4v)$/i.test(m.name);
-          return `<a href="${url}" target="_blank" class="rounded-lg border border-outline-variant/30 bg-surface-container-lowest overflow-hidden block"><div class="relative h-44 bg-surface-container-high flex items-center justify-center">${video ? `<video src="${url}" muted class="h-full w-full object-cover"></video>` : `<img src="${url}" loading="lazy" class="h-full w-full object-cover" alt="">`}<span class="absolute top-2 left-2 rounded-[3px] bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-secondary">${esc(m.name.split('.').pop().toUpperCase())}</span></div><div class="p-3"><span class="text-sm font-medium truncate block">${esc(m.name)}</span><span class="font-mono text-[11px] text-outline">${fmtMB(m.size)} · ${new Date(m.mtime*1000).toLocaleString()}</span></div></a>`;
-        }).join('') : '<div class="text-outline font-mono text-xs">No downloaded media found yet.</div>';
+      if (filmTask) {
+        const data = await jget(`/gdl/api/tasks/${encodeURIComponent(filmTask.slug)}/recent`).catch(() => null);
+        if (filmTask) renderFilm(data?.items || [], `Task: ${filmTask.name}`);
+      } else {
+        const mj = await jget('/gdl/api/media/recent').catch(() => null);
+        if (mj) renderFilm(mj.media || [], mj.dir || 'Downloads');
       }
     } catch (e) {
       console.error('GalleryDL telemetry refresh error:', e);
@@ -527,6 +704,5 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
 })();
 </script>
-</div>
 </body>
 </html>
