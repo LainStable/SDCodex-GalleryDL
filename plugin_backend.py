@@ -113,7 +113,10 @@ def _set_schedule(slug: str, expr: str):
 def _authed():
     try:
         from sdcodex import auth as core_auth
-
+    except Exception:
+        # Standalone deployment: there is no core session to check.
+        return True
+    try:
         u = core_auth.current_user()
         return u is not None
     except Exception:
@@ -122,6 +125,21 @@ def _authed():
 
 def _deny():
     return jsonify({"error": "unauthorized"}), 401
+
+
+# Kiosk display endpoints are intentionally public: they are opened on a TV or
+# wall tablet that never signs in. Everything else under /gdl/api requires a
+# core session, including reads of task logs and settings.
+_PUBLIC_GDL_PREFIXES = ("/gdl/api/kiosk/",)
+
+
+@gdl_api.before_request
+def _gdl_auth_guard():
+    if any(request.path.startswith(prefix) for prefix in _PUBLIC_GDL_PREFIXES):
+        return None
+    if not _authed():
+        return _deny()
+    return None
 
 
 def _env(name: str, default: str) -> str:
@@ -304,6 +322,25 @@ def _is_running(pid) -> bool:
         return False
 
 
+def _pid_belongs_to(pid, base: str) -> bool:
+    """True when ``pid`` is a live process whose cwd is this task folder.
+
+    PIDs are recycled by the kernel; a stale ``pid`` file must never make the
+    stop endpoint signal an unrelated process.
+    """
+    try:
+        value = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if value <= 0 or not _is_running(value):
+        return False
+    try:
+        return os.path.realpath(f"/proc/{value}/cwd") == os.path.realpath(base)
+    except OSError:
+        # /proc is unavailable (non-Linux): fall back to the liveness check.
+        return True
+
+
 def _read_file_strip(path: str) -> str:
     """Read a plain-text file and return its stripped content, or ''."""
     try:
@@ -335,7 +372,7 @@ def _task_info(slug: str) -> dict:
             state = "paused"
     if not alive:
         pid = _read_file_strip(os.path.join(base, "pid"))
-        alive = bool(pid and _is_running(pid))
+        alive = bool(pid and _pid_belongs_to(pid, base))
     if alive:
         state = "running"
     elif state == "running":
@@ -474,7 +511,7 @@ def _run_task(slug: str) -> None:
     except FileExistsError:
         pid_text = _read_file_strip(pid_path)
         stale_marker = not pid_text and time.time() - os.path.getmtime(lock_path) > 60
-        if (pid_text and not _is_running(pid_text)) or stale_marker:
+        if (pid_text and not _pid_belongs_to(pid_text, base)) or stale_marker:
             for marker in (lock_path, pid_path):
                 try: os.remove(marker)
                 except OSError: pass
@@ -801,7 +838,7 @@ def task_stop(slug: str):
         proc = _procs.get(slug)
     if proc is None or proc.poll() is not None:
         pid_text = _read_file_strip(os.path.join(base, "pid"))
-        if pid_text and _is_running(pid_text):
+        if pid_text and _pid_belongs_to(pid_text, base):
             try: os.kill(int(pid_text), signal.SIGTERM)
             except OSError: pass
         else:
