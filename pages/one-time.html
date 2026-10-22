@@ -117,11 +117,11 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <input id="q-task-name" type="text" placeholder="Task name (optional)" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs"/>
         </div>
 
-        <button id="q-btn" type="submit" class="mt-2 w-full rounded-lg bg-badge-checkpoint py-2.5 font-mono text-xs font-semibold text-white flex items-center justify-center gap-2 ring-1 ring-white/20">
+        <button id="q-btn" type="submit" class="mt-2 w-full sd-btn sd-btn-primary">
           <span class="material-symbols-outlined text-sm">rocket_launch</span> Enqueue &amp; Launch Scraper
         </button>
         <div id="quick-status" class="font-mono text-[11px] text-outline"></div>
-        <div class="flex gap-2"><a href="/gdl/api/one-time/logs/download" class="rounded border border-outline-variant/40 px-2 py-1 font-mono text-[10px]">Download log</a><button id="quick-clear-log" type="button" class="rounded border border-outline-variant/40 px-2 py-1 font-mono text-[10px]">Clear log</button><button id="quick-stop" type="button" class="rounded border border-status-alert/40 px-2 py-1 font-mono text-[10px] text-status-alert">Stop download</button></div>
+        <div class="flex gap-2"><a href="/gdl/api/one-time/logs/download" class="sd-btn sd-btn-sm">Download log</a><button id="quick-clear-log" type="button" class="sd-btn sd-btn-sm">Clear log</button><button id="quick-stop" type="button" class="sd-btn sd-btn-sm sd-btn-danger">Stop download</button></div>
         <div id="quick-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-56 overflow-y-auto flex flex-col gap-1"></div>
       </form>
     </div>
@@ -131,7 +131,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
         <div class="px-4 py-2 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
           <div class="flex items-center gap-2 font-mono text-[11px]"><span class="material-symbols-outlined text-xs text-secondary">terminal</span><span class="font-semibold">Resolved gallery-dl invocation</span></div>
-          <button id="copy-btn" class="font-mono text-[10px] text-outline hover:text-white flex items-center gap-1"><span class="material-symbols-outlined text-xs">content_copy</span>Copy</button>
+          <button id="copy-btn" class="sd-btn sd-btn-sm"><span class="material-symbols-outlined text-xs">content_copy</span>Copy</button>
         </div>
         <pre id="cli-preview" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed text-secondary overflow-x-auto">gallery-dl --write-metadata …</pre>
       </div>
@@ -283,7 +283,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
           <span class="rounded-[3px] border border-outline-variant/40 bg-white/5 px-2 py-0.5 text-[10px] font-bold">${esc(h.state)}</span>
         </td>
         <td class="py-2.5 px-5 font-mono text-[10px] text-outline">${esc(h.started_at || '')}</td>
-        <td class="py-2.5 px-5">${h.state === 'running' ? `<button class="font-mono text-[10px] text-status-alert hover:underline" onclick="stopJob('${esc(h.job)}')">Stop</button>` : ''}</td>
+        <td class="py-2.5 px-5">${h.state === 'running' ? `<button class="sd-btn sd-btn-sm sd-btn-danger" onclick="stopJob('${esc(h.job)}')">Stop</button>` : ''}</td>
       </tr>`).join('');
   }
 

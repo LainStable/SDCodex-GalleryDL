@@ -52,7 +52,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low overflow-hidden">
     <div class="px-5 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/60 flex items-center justify-between">
       <h2 class="font-display font-semibold">Stored Profiles</h2>
-      <button onclick="document.getElementById('cookie-text').focus()" class="rounded-lg bg-badge-checkpoint px-3 py-1.5 font-mono text-[11px] font-semibold text-white flex items-center gap-1.5 ring-1 ring-white/20"><span class="material-symbols-outlined text-sm">add</span>Add Profile</button>
+      <button onclick="document.getElementById('cookie-text').focus()" class="sd-btn sd-btn-primary"><span class="material-symbols-outlined text-sm">add</span>Add Profile</button>
     </div>
     <table class="w-full text-left font-mono text-xs">
       <thead><tr class="border-b border-outline-variant/20 text-outline text-[10px] uppercase">
@@ -71,15 +71,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <textarea id="cookie-text" rows="4" placeholder="Paste a Netscape cookies.txt export" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3 font-mono text-[11px] focus:outline-none focus:border-badge-checkpoint"></textarea>
       <div class="flex gap-2">
         <select id="cookie-platform" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-[11px]"><option value="pixiv">Pixiv</option><option value="reddit">Reddit</option><option value="deviantart">DeviantArt</option><option value="tumblr">Tumblr</option><option value="flickr">Flickr</option><option value="mastodon">Mastodon</option></select>
-        <button id="cookie-save" class="flex-1 rounded-lg bg-badge-checkpoint py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save Cookie Jar</button>
+        <button id="cookie-save" class="flex-1 sd-btn sd-btn-primary">Save Cookie Jar</button>
       </div>
       <span id="cookie-message" class="font-mono text-[10px] text-outline"></span>
     </div>
     <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3">
       <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">vpn_key</span><h2 class="font-display font-semibold">OAuth Handshake Log</h2></div>
-      <div class="flex gap-2"><select id="oauth-task" class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5 font-mono text-[11px]"></select><button id="oauth-start" class="rounded bg-badge-checkpoint px-3 py-1.5 text-xs">Start</button><button id="oauth-stop" class="rounded border border-status-alert/40 px-3 py-1.5 text-xs">Stop</button><button id="oauth-reset" class="rounded border border-outline-variant/40 px-3 py-1.5 text-xs">Reset</button></div>
+      <div class="flex gap-2"><select id="oauth-task" class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5 font-mono text-[11px]"></select><button id="oauth-start" class="sd-btn sd-btn-primary">Start</button><button id="oauth-stop" class="sd-btn sd-btn-danger">Stop</button><button id="oauth-reset" class="sd-btn">Reset</button></div>
       <p class="font-mono text-[10px] text-outline">Start the selected task’s gallery-dl OAuth flow. Complete the browser step, then paste the returned callback URL/code here.</p>
-      <textarea id="oauth-callback" rows="2" placeholder="Callback URL or authorization code" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-2 font-mono text-[11px]"></textarea><button id="oauth-paste" class="self-start rounded border border-outline-variant/40 px-3 py-1.5 font-mono text-[10px]">Submit callback</button>
+      <textarea id="oauth-callback" rows="2" placeholder="Callback URL or authorization code" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-2 font-mono text-[11px]"></textarea><button id="oauth-paste" class="self-start sd-btn sd-btn-sm">Submit callback</button>
       <pre id="oauth-log" class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed max-h-48 overflow-auto text-outline">No OAuth run is active.</pre><span id="oauth-message" class="font-mono text-[10px] text-outline"></span>
     </div>
   </div>
@@ -101,7 +101,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
             <td class="py-3 px-5 text-outline">${esc(p.method)}</td>
             <td class="py-3 px-5 text-outline">${esc(p.status === 'valid' ? 'Seen recently' : 'Review')}</td>
             <td class="py-3 px-5"><span class="inline-flex items-center gap-1 rounded-[3px] border border-white/10 px-2 py-0.5 text-[10px] font-bold ${TXT[p.status] || TXT.unknown}"><span class="h-1.5 w-1.5 rounded-full ${DOT[p.status] || DOT.unknown}"></span>${esc(p.status)}</span></td>
-            <td class="py-3 px-5 text-right"><button onclick="gdlCookieDelete('${esc(p.account)}')" class="text-status-alert">Delete</button></td>
+            <td class="py-3 px-5 text-right"><button onclick="gdlCookieDelete('${esc(p.account)}')" class="sd-btn sd-btn-sm sd-btn-danger">Delete</button></td>
           </tr>`).join('');
       const sel=document.getElementById('oauth-task'), old=sel.value;
       sel.innerHTML=(r.tasks||[]).map(t=>`<option value="${esc(t.slug)}">${esc(t.name)} · ${esc(t.site_label)}${t.authenticated?' · authenticated':''}</option>`).join('') || '<option value="">No tasks configured with OAuth</option>';

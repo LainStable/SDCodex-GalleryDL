@@ -58,10 +58,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       </div>
       <textarea id="conf-text" rows="16" spellcheck="false" class="w-full rounded-lg border border-outline-variant/40 bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-secondary focus:outline-none focus:border-badge-checkpoint"></textarea>
       <div class="flex items-center gap-2">
-        <button id="conf-save" class="rounded-lg bg-badge-checkpoint px-4 py-2 font-mono text-[11px] font-semibold text-white ring-1 ring-white/20">Save config</button>
-        <button id="conf-reset" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Reset defaults</button>
-        <button id="conf-check" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Check for options</button>
-        <button id="conf-merge" class="rounded-lg border border-outline-variant/40 px-3 py-2 font-mono text-[10px]">Merge new options</button>
+        <button id="conf-save" class="sd-btn sd-btn-primary">Save config</button>
+        <button id="conf-reset" class="sd-btn">Reset defaults</button>
+        <button id="conf-check" class="sd-btn">Check for options</button>
+        <button id="conf-merge" class="sd-btn">Merge new options</button>
         <span id="conf-msg" class="font-mono text-[10px] text-ink-faint"></span>
       </div>
     </div>
@@ -73,7 +73,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <div id="backup-tasks" class="max-h-32 overflow-auto rounded bg-[#070a10] p-2 font-mono text-[10px] text-outline">Loading tasks…</div>
         <label class="flex items-center gap-2 font-mono text-[10px] text-outline"><input id="backup-config" type="checkbox" class="rounded accent-[#6366f1]"/>Include gallery-dl.conf and plugin settings</label>
         <div class="flex flex-wrap gap-2">
-          <button id="backup-download" class="rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Download backup</button>
+          <button id="backup-download" class="sd-btn">Download backup</button>
           <label class="cursor-pointer rounded-lg border border-outline-variant/40 px-4 py-2 font-mono text-[11px] hover:border-badge-sdxl/60">Restore backup<input id="restore-file" type="file" accept=".zip,.tar.gz,.tgz" class="hidden"/></label>
         </div>
         <span id="restore-msg" class="font-mono text-[10px] text-ink-faint"></span>
@@ -85,7 +85,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
         <div class="rounded-lg bg-[#070a10] p-3 font-mono text-[11px] leading-relaxed text-outline">example cron.txt:<br/><span class="text-secondary">0 */6 * * *</span> <span class="text-ink-faint"># every 6 hours</span></div>
         <div id="sched-list" class="font-mono text-[11px] text-outline">loading…</div>
       </div>
-      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">speed</span><h2 class="font-display font-semibold">Task concurrency</h2></div><label class="font-mono text-[11px] text-outline">Maximum simultaneous task runs<input id="max-concurrent" type="number" min="1" max="64" value="5" class="ml-3 w-20 rounded border border-outline-variant/40 bg-surface-container-lowest px-2 py-1 text-white"/></label><button id="concurrent-save" class="self-start rounded-lg bg-badge-checkpoint px-4 py-2 font-mono text-[11px] text-white">Save limit</button><span id="concurrent-msg" class="font-mono text-[10px] text-outline"></span></div>
+      <div class="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 flex flex-col gap-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">speed</span><h2 class="font-display font-semibold">Task concurrency</h2></div><label class="font-mono text-[11px] text-outline">Maximum simultaneous task runs<input id="max-concurrent" type="number" min="1" max="64" value="5" class="ml-3 w-20 rounded border border-outline-variant/40 bg-surface-container-lowest px-2 py-1 text-white"/></label><button id="concurrent-save" class="self-start sd-btn sd-btn-primary">Save limit</button><span id="concurrent-msg" class="font-mono text-[10px] text-outline"></span></div>
     </div>
   </div>
 </div>

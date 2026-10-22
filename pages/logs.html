@@ -55,7 +55,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     <div class="flex items-center gap-2 font-mono text-[11px]">
       <select id="log-level" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"><option value="all">All levels</option><option value="error">Errors only</option><option value="warning">Warnings+</option></select>
       <select id="log-task" class="rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-2 py-1.5"></select>
-      <a id="log-export" class="rounded-lg border border-outline-variant/40 px-3 py-1.5 flex items-center gap-1.5 hover:border-badge-sdxl/60"><span class="material-symbols-outlined text-sm">output</span>Export task log</a>
+      <a id="log-export" class="sd-btn sd-btn-sm"><span class="material-symbols-outlined text-sm">output</span>Export task log</a>
     </div>
   </section>
 
@@ -72,8 +72,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div class="flex items-center gap-2 font-mono text-[10px] text-outline">
         <span id="tail-indicator" class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</span>
         <select id="log-archive" class="rounded border border-outline-variant/30 bg-surface-container-lowest px-2 py-1"><option value="">Archived logs</option></select>
-        <button id="log-clear" class="p-1 hover:text-status-alert" title="Clear logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>
-        <button id="log-copy" class="p-1 hover:text-white" title="Copy visible log"><span class="material-symbols-outlined text-xs">content_copy</span></button>
+        <button id="log-clear" class="sd-btn sd-btn-icon hover:text-status-alert" title="Clear logs"><span class="material-symbols-outlined text-xs">delete_sweep</span></button>
+        <button id="log-copy" class="sd-btn sd-btn-icon hover:text-white" title="Copy visible log"><span class="material-symbols-outlined text-xs">content_copy</span></button>
       </div>
     </div>
     <div id="log-box" class="p-4 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[420px] scroll-thin flex flex-col gap-1">
