@@ -460,11 +460,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
 
   function row(t) {
     const [label, cls, live] = STATE[t.state] || STATE.idle;
-    const pct = t.progress;
+    const pct = Number.isFinite(t.progress) ? t.progress : null;
+    const urlLabel = t.url_total
+      ? `${t.url_index || 0}/${t.url_total} urls`
+      : `${t.urls || '?'} urls`;
     const scheduleDisplay = t.schedule ? '<span class="rounded-[3px] border border-outline-variant/20 bg-surface-container px-1.5 font-mono text-[9px] text-secondary">' + esc(t.schedule) + '</span><span class="mt-1 block text-[9px] text-outline">Next: ' + esc(t.next_run ? new Date(t.next_run).toLocaleString() : 'pending') + '</span>' : '<span class="text-outline/40">— manual —</span>';
+    // Same gradient and geometry as the floating Plugin Tasks notification.
     const bar = pct != null
-      ? `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden"><div class="h-full bg-gradient-to-r from-badge-checkpoint to-badge-sdxl rounded-full" style="width:${pct}%"></div></div>`
-      : `<div class="flex justify-between text-[10px] text-outline"><span>${t.urls || '?'} urls</span><span>${esc(label || t.state)}</span></div><div class="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 bg-secondary animate-pulse rounded-full"></div>' : ''}</div>`;
+      ? `<div class="flex justify-between text-[10px] text-outline"><span>${urlLabel}</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-sm bg-surface-container-highest overflow-hidden"><div class="h-full rounded-sm bg-gradient-to-r from-badge-checkpoint to-badge-sdxl transition-all" style="width:${pct}%"></div></div>`
+      : `<div class="flex justify-between text-[10px] text-outline"><span>${urlLabel}</span><span>${esc(label || t.state)}</span></div><div class="mt-1 h-1.5 rounded-sm bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 rounded-sm bg-gradient-to-r from-badge-checkpoint to-badge-sdxl animate-pulse"></div>' : ''}</div>`;
     const mediaBtn = `<button onclick="showTaskMedia('${t.slug}')" class="sd-btn sd-btn-icon hover:text-secondary" title="Recent media from this task"><span class="material-symbols-outlined text-xs">photo_library</span></button>`;
     const statsBtn = `<button onclick="showTaskDetails('${t.slug}')" class="sd-btn sd-btn-icon hover:text-secondary" title="Stats, history and recent downloads"><span class="material-symbols-outlined text-xs">monitoring</span></button>`;
     const btns = (t.state === 'running'
@@ -612,9 +616,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       </div>
     </div>`;
   }
+  let filmKey = '';
   function renderFilm(items, label) {
     $('media-dir').textContent = label || 'Downloads';
     $('film-show-all').classList.toggle('hidden', !filmTask);
+    // Avoid rebuilding (and re-requesting thumbnails) every poll when nothing
+    // new landed.
+    const key = `${label}|${items.map((item) => item.rel).join('|')}`;
+    if (key === filmKey) return;
+    filmKey = key;
     $('film-grid').innerHTML = items.length
       ? items.map(filmCard).join('')
       : `<div class="col-span-full font-mono text-xs text-outline">${filmTask ? 'No media found for this task yet.' : 'No downloaded media found yet.'}</div>`;
@@ -725,10 +735,21 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     await Promise.all([refreshTasks(), refreshSlow()]);
   }
   void refresh();
-  // Task state is cheap and drives the table; engines/telemetry/media walk
-  // large folders, so refresh those far less often.
+  // Task state is cheap and drives the table; the telemetry panel and
+  // filmstrip follow the same cadence while a task is running, so new files
+  // and moving disk numbers appear live instead of once a minute.
   setInterval(() => void refreshTasks(), 5000);
-  setInterval(() => void refreshSlow(), 60000);
+  let slowTimer = null;
+  function scheduleSlow(delay) {
+    if (slowTimer) clearTimeout(slowTimer);
+    slowTimer = setTimeout(async () => {
+      slowTimer = null;
+      try { await refreshSlow(); } finally {
+        scheduleSlow(taskRows.some((t) => t.state === 'running') ? 4000 : 20000);
+      }
+    }, delay);
+  }
+  scheduleSlow(4000);
   window.addEventListener('pageshow', () => void refresh());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
 })();

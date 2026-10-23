@@ -35,7 +35,11 @@ _quick: dict = {}          # job_id -> {state, log file, proc, ...}
 _lock = threading.RLock()  # reentrant: status helpers call each other
 _scan_lock = threading.Lock()
 _scan_cache: dict = {"ts": 0.0, "data": None}
-_TELEMETRY_TTL = 45.0
+_TELEMETRY_TTL = 10.0
+# Task log totals/counters change slowly and the walk is expensive; keep them
+# out of the 10s media scan cycle.
+_aux_cache: dict = {"ts": 0.0, "tasks_bytes": 0, "filtered": 0, "errors": 0}
+_AUX_TTL = 60.0
 _scheduler = None
 _settings_loaded = False
 _slots = threading.BoundedSemaphore(max(1, int(os.environ.get("TASK_CONCURRENT_MAX", "5") or "5")))
@@ -376,6 +380,38 @@ def _tail(path: str, max_lines: int = 200) -> list:
         return []
 
 
+_URL_MARKER_RE = re.compile(rb"\[(\d{1,4})/(\d{1,4})\]\s+(https?://\S+)")
+
+
+def _last_url_marker(path: str):
+    """Newest gallery-dl ``[i/n] <url>`` marker in the log tail.
+
+    gallery-dl prints one marker per input URL as it starts working on it; the
+    per-file output has no percentages, so this is the only reliable per-URL
+    progress signal. Read backwards in chunks and stop at the first hit, so a
+    URL that downloaded thousands of files does not require a full log scan.
+    """
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            data = b""
+            budget = 8 * 1024 * 1024  # never read more than 8 MB from the end
+            while size > 0 and budget > 0:
+                step = min(64 * 1024, size)
+                size -= step
+                budget -= step
+                fh.seek(size)
+                data = fh.read(step) + data
+                matches = list(_URL_MARKER_RE.finditer(data))
+                if matches:
+                    index, total, url = matches[-1].groups()
+                    return int(index), int(total), url.decode("utf-8", "replace")
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def _tool_version(cmd: str) -> str:
     # Spawning `gallery-dl --version` / `yt-dlp --version` imports the whole
     # tool, so cache the answer instead of running it on every page poll.
@@ -455,19 +491,40 @@ def _task_info(slug: str) -> dict:
         state = "running"
     elif state == "running":
         state = "stopped"
-    # progress: last NN% seen in the log tail.
-    pct = None
+    # Progress: gallery-dl prints "[i/n] <url>" when it starts each input URL.
+    # That is the only per-URL signal in the log, so the percentage is i/n for
+    # multi-URL tasks. yt-dlp-style "NN%" lines act as sub-progress.
     log_path = os.path.join(base, "stdout.log")
     if not os.path.exists(log_path):
         log_path = os.path.join(base, "logs.txt")
-    for line in reversed(_tail(log_path, 60)):
-        m = re.search(r"(\d{1,3})%", line)
-        if m:
-            try:
-                pct = max(0, min(100, int(m.group(1))))
-                break
-            except ValueError:
-                pass
+    url_index = url_total = 0
+    current_url = ""
+    within_pct = None
+    if state == "running":
+        marker = _last_url_marker(log_path)
+        if marker:
+            url_index, url_total, current_url = marker
+        elif urls:
+            # Older gallery-dl builds do not print the [i/n] marker; fall back
+            # to the first URL so the counter still reflects the input list.
+            url_index, url_total = 1, len(urls)
+        for line in reversed(_tail(log_path, 80)):
+            m = re.search(r"(\d{1,3}(?:\.\d+)?)%", line)
+            if m:
+                try:
+                    within_pct = max(0.0, min(100.0, float(m.group(1))))
+                    break
+                except ValueError:
+                    pass
+    pct = None
+    if url_total and url_index:
+        if within_pct is not None:
+            pct = round(((url_index - 1) + within_pct / 100) * 100 / url_total)
+        else:
+            pct = round(url_index * 100 / url_total)
+        pct = max(0, min(100, pct))
+    elif within_pct is not None:
+        pct = round(within_pct)
     schedule = _read_file_strip(os.path.join(base, "cron.txt"))
     return {
         "id": slug,
@@ -475,6 +532,9 @@ def _task_info(slug: str) -> dict:
         "name": name,
         "command": command,
         "urls": len(urls),
+        "url_index": url_index,
+        "url_total": url_total,
+        "current_url": current_url,
         "state": state,
         "schedule": schedule,
         "progress": pct,
@@ -1048,19 +1108,31 @@ def plugin_task_status():
     slug = running_slugs[0]
     info = _task_info(slug) if _task_base(slug) else {}
     name = info.get("name") or slug
+    url_index = int(info.get("url_index") or 0)
+    url_total = int(info.get("url_total") or info.get("urls") or 0)
     progress = info.get("progress")
-    if isinstance(progress, int) and 0 <= progress <= 100:
+    if url_total:
+        current = max(0, min(url_index, url_total))
+        total = url_total
+        message = f"{name} · URL {current}/{total}" if current else f"{name} · starting"
+    elif isinstance(progress, int) and 0 <= progress <= 100:
         current, total = progress, 100
         message = f"{name}: {progress}%"
     else:
-        current, total = 1, max(1, len(running_slugs))
+        current, total = 0, max(1, len(running_slugs))
         message = f"{name} running"
+    detail = slug
+    current_url = info.get("current_url") or ""
+    if current_url:
+        host = re.sub(r"^[a-z]+://([^/]+).*$", r"\1", current_url)
+        if host and host != current_url:
+            detail = host
     return jsonify({
         "active": True,
         "state": "running",
         "current": current,
         "total": total,
-        "detail": slug,
+        "detail": detail,
         "message": message,
         "started_at": _epoch(info.get("started_at")),
     })
@@ -1110,7 +1182,7 @@ def _recent_from_log(path: str, limit: int):
         found.append({"rel": rel, "name": os.path.basename(candidate), "ext": ext,
                       "url": "/gdl/api/media/file?path=" + __import__("urllib.parse", fromlist=["quote"]).quote(rel),
                       "is_image": ext in _IMAGE_EXTS, "is_video": ext in _MEDIA_EXTS - _IMAGE_EXTS,
-                      "size": os.path.getsize(candidate)})
+                      "size": os.path.getsize(candidate), "mtime": os.path.getmtime(candidate)})
         if len(found) >= limit: break
     return found
 
@@ -1394,37 +1466,53 @@ def _scan_recent_media(root: str, limit: int):
     return found[:limit]
 
 
+def _telemetry_aux() -> dict:
+    """Cached task-folder size + log counters.
+
+    Walking the task folders and tailing every log took seconds and ran on
+    every telemetry poll, which made the panel look frozen. These numbers do
+    not need 10-second resolution, so cache them separately.
+    """
+    now = time.time()
+    if _aux_cache["ts"] and now - _aux_cache["ts"] < _AUX_TTL:
+        return _aux_cache
+    tasks_bytes = 0
+    filtered = errors = 0
+    root = tasks_dir()
+    try:
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for filename in filenames:
+                try:
+                    tasks_bytes += os.path.getsize(os.path.join(dirpath, filename))
+                except OSError:
+                    pass
+        for slug in os.listdir(root):
+            base = _task_base(slug)
+            if not base or not os.path.isdir(base):
+                continue
+            lp = os.path.join(base, "logs.txt") if os.path.isfile(os.path.join(base, "logs.txt")) else os.path.join(base, "stdout.log")
+            for line in _tail(lp, 3000):
+                low = line.lower()
+                filtered += int(any(k in low for k in ("skip", "filtered", "already downloaded")))
+                errors += int(any(k in low for k in ("error", "failed", "exception")))
+    except OSError:
+        pass
+    _aux_cache.update({"ts": now, "tasks_bytes": tasks_bytes, "filtered": filtered, "errors": errors})
+    return _aux_cache
+
+
 @gdl_api.get("/telemetry")
 def telemetry():
     if not _authed():
         return _deny()
-    def du(path: str) -> int:
-        total = 0
-        try:
-            for dp, _, fns in os.walk(path):
-                for fn in fns:
-                    try:
-                        total += os.path.getsize(os.path.join(dp, fn))
-                    except OSError:
-                        pass
-        except OSError:
-            pass
-        return total
-
     scan = _scan_downloads()
+    aux = _telemetry_aux()
     images = scan["bytes"]
-    meta = du(tasks_dir())
+    meta = aux["tasks_bytes"]
     items_today = scan["today_items"]
     bytes_today = scan["today_bytes"]
-    filtered = errors = 0
-    for slug in os.listdir(tasks_dir()):
-        base = _task_base(slug)
-        if not base or not os.path.isdir(base): continue
-        lp = os.path.join(base, "logs.txt") if os.path.isfile(os.path.join(base, "logs.txt")) else os.path.join(base, "stdout.log")
-        for line in _tail(lp, 5000):
-            low = line.lower()
-            filtered += int(any(k in low for k in ("skip", "filtered", "already downloaded")))
-            errors += int(any(k in low for k in ("error", "failed", "exception")))
+    filtered = aux["filtered"]
+    errors = aux["errors"]
     try: disk = shutil.disk_usage(downloads_dir())
     except OSError: disk = None
     return jsonify({
@@ -1931,11 +2019,33 @@ def backup_restore():
 
 @gdl_api.get("/media/recent")
 def media_recent():
-    """Newest image/video files under the downloads dir (filmstrip)."""
+    """Newest image/video files under the downloads dir (filmstrip).
+
+    The disk walk is cached for a few seconds; files written by a task that is
+    still running are merged straight from its log so the filmstrip grows while
+    the scrape is in progress instead of waiting for the next walk.
+    """
     if not _authed():
         return _deny()
     scan = _scan_downloads(12)
-    return jsonify({"dir": downloads_dir(), "media": scan["media"]})
+    media = list(scan["media"])
+    seen = {item.get("rel") for item in media}
+    with _lock:
+        running = [slug for slug, proc in _procs.items() if proc.poll() is None]
+    for slug in running:
+        base = _task_base(slug)
+        if not base or not os.path.isdir(base):
+            continue
+        log_path = os.path.join(base, "stdout.log")
+        if not os.path.isfile(log_path):
+            log_path = os.path.join(base, "logs.txt")
+        for item in _recent_from_log(log_path, 12):
+            if item["rel"] in seen:
+                continue
+            seen.add(item["rel"])
+            media.append({key: item[key] for key in ("name", "rel", "size", "mtime")})
+    media.sort(key=lambda item: item.get("mtime") or 0, reverse=True)
+    return jsonify({"dir": downloads_dir(), "media": media[:12]})
 
 
 @gdl_api.get("/media/file")
