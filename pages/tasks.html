@@ -461,9 +461,14 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   // ── Inline expansion panels ─────────────────────────────────────────
   let expanded = null; // { slug, mode, values?: object }
   let panelFocusId = null;
+  // The mounted panel row. The task table is re-rendered every few seconds,
+  // so the element is kept and re-inserted instead of being rebuilt: the log
+  // tail, the media grid and a half-typed edit must not flicker away.
+  let panelEl = null;
 
   function closePanel() {
     document.querySelectorAll('#job-rows tr.expanded-panel').forEach((tr) => tr.remove());
+    panelEl = null;
     expanded = null;
     updateExpandButtons();
   }
@@ -485,13 +490,18 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   function renderPanelRow(slug, mode, html) {
     const tr = document.querySelector(`#job-rows tr[data-slug="${slug}"]`);
     if (!tr) return null;
-    document.querySelectorAll('#job-rows tr.expanded-panel').forEach((el) => el.remove());
-    const panel = document.createElement('tr');
-    panel.className = 'expanded-panel';
+    let panel = panelEl && panelEl.isConnected ? panelEl : null;
+    if (!panel) {
+      panel = document.createElement('tr');
+      panel.className = 'expanded-panel';
+      panel.innerHTML = `<td colspan="7" class="p-0 border-b border-outline-variant/30"><div class="p-4 md:p-5 bg-surface-container-lowest/40" id="inline-panel-body" tabindex="-1"></div></td>`;
+    }
     panel.dataset.panelSlug = slug;
     panel.dataset.panelMode = mode;
-    panel.innerHTML = `<td colspan="7" class="p-0 border-b border-outline-variant/30"><div class="p-4 md:p-5 bg-surface-container-lowest/40" id="inline-panel-body" tabindex="-1">${html}</div></td>`;
+    const body = panel.querySelector('#inline-panel-body');
+    if (body) body.innerHTML = html;
     tr.after(panel);
+    panelEl = panel;
     return panel;
   }
 
@@ -766,7 +776,10 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     }
     if (archiveSelect) {
       const files = archived?.files || [];
+      const chosen = archiveSelect.value;
       archiveSelect.innerHTML = '<option value="">Archived logs</option>' + files.map(f => `<option value="${encodeURIComponent(f.name)}">${esc(f.name)}</option>`).join('');
+      // Keep the chosen archive across the poll instead of resetting it.
+      if (chosen && files.some(f => f.name === chosen)) archiveSelect.value = chosen;
       archiveSelect.onchange = () => {
         const fn = archiveSelect.value;
         if (slug && fn) location.href = `/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archive/${fn}`;
@@ -774,9 +787,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     }
     if (logBox) {
       const lines = (lj?.lines || []).slice(-120);
+      // Follow the tail only when the reader is already at the bottom; a
+      // reader who scrolled up to read something keeps their position.
+      const atBottom = logBox.scrollTop + logBox.clientHeight >= logBox.scrollHeight - 4;
       logBox.innerHTML = lines.map((l) => `<div class="${/error|failed|exception/i.test(l) ? 'text-status-alert' : /warn|skip|filtered/i.test(l) ? 'text-status-warning' : 'text-outline'}">${esc(l)}</div>`).join('')
         + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(slug) + '</span></div>';
-      logBox.scrollTop = logBox.scrollHeight;
+      if (atBottom) logBox.scrollTop = logBox.scrollHeight;
     }
     if (logState) {
       logState.innerHTML = `<span class="h-2 w-2 rounded-full ${active ? 'bg-status-active animate-ping' : 'bg-outline'}"></span>${active ? 'Tailing' : 'Idle'}`;
@@ -794,6 +810,15 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       <div id="inline-film-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4"><div class="col-span-full font-mono text-xs text-outline">Loading task media…</div></div>
     </div>`;
     renderPanelRow(slug, 'media', html);
+    await refreshMediaPanel(slug);
+  }
+
+  /** Refresh the media cards in place. The renderer skips the rebuild when the
+      item set is unchanged, so the thumbnails are not re-requested on every
+      poll and the grid does not blink. */
+  async function refreshMediaPanel(slug) {
+    const task = taskRows.find(t => t.slug === slug);
+    const name = task?.name || slug;
     const data = await jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/recent`).catch(() => null);
     if (expanded?.slug !== slug || expanded?.mode !== 'media') return;
     renderFilm(data?.items || [], `Task: ${name}`, 'inline-film-grid');
@@ -803,7 +828,16 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     if (!expanded) return;
     const exists = taskRows.some(t => t.slug === expanded.slug);
     if (!exists) { closePanel(); return; }
-    if (expanded.mode === 'edit') {
+    // The panel element survives the table re-render, so only its content is
+    // refreshed. Rebuilding it would blank the log tail and the media grid on
+    // every poll and throw away what the user had selected.
+    if (panelEl && panelEl.isConnected) {
+      if (expanded.mode === 'logs') {
+        await refreshInlineLogs(expanded.slug);
+      } else if (expanded.mode === 'media') {
+        await refreshMediaPanel(expanded.slug);
+      }
+    } else if (expanded.mode === 'edit') {
       populateEditPanel(expanded.slug);
       restoreEditValues();
     } else if (expanded.mode === 'logs') {
@@ -995,9 +1029,25 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       const tasks = tj.tasks;
       const active = tasks.filter((t) => t.state === 'running').length;
       $('active-count').textContent = tasks.length === 0 ? 'Empty' : `${active} Active · ${tasks.length} Total`;
+      // The table is rebuilt from scratch on every poll. Detach the expanded
+      // panel first and re-insert it under its task afterwards, so the panel
+      // keeps its content, scroll position and selection.
+      const keptPanel = panelEl && panelEl.isConnected ? panelEl : null;
+      if (keptPanel) keptPanel.remove();
       $('job-rows').innerHTML = tasks.length === 0
         ? '<tr><td colspan="7" class="py-8 px-5 text-center text-outline">No tasks yet — fill in the form above to create one.</td></tr>'
         : tasks.map(row).join('');
+      if (keptPanel) {
+        const home = document.querySelector(`#job-rows tr[data-slug="${expanded?.slug || ''}"]`);
+        if (home) {
+          home.after(keptPanel);
+          panelEl = keptPanel;
+        } else {
+          keptPanel.remove();
+          panelEl = null;
+          expanded = null;
+        }
+      }
       taskRows = tasks;
       $('tele-tasks').textContent = `${tasks.length} tasks`;
       applyTaskFilters();
