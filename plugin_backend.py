@@ -1084,6 +1084,20 @@ def task_urls_update(slug: str):
     return jsonify({"ok": True})
 
 
+@gdl_api.post("/task/stop")
+def stop_running_task():
+    """Stop the task the float is showing (the task notification's stop button)."""
+    if not _authed():
+        return _deny()
+    with _lock:
+        running = [slug for slug, proc in _procs.items() if proc.poll() is None]
+    if not running:
+        return jsonify({"ok": True, "state": "stopped", "message": "Nothing is running"})
+    slug = running[0]
+    result = task_stop(slug)
+    return result
+
+
 @gdl_api.get("/task")
 def plugin_task_status():
     """Aggregated background-task status for PluginTaskFloat.
