@@ -458,6 +458,362 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   }
   $('cReset').addEventListener('click', resetForm);
 
+  // ── Inline expansion panels ─────────────────────────────────────────
+  let expanded = null; // { slug, mode, values?: object }
+  let panelFocusId = null;
+
+  function closePanel() {
+    document.querySelectorAll('#job-rows tr.expanded-panel').forEach((tr) => tr.remove());
+    expanded = null;
+    updateExpandButtons();
+  }
+  window.closePanel = closePanel;
+
+  function updateExpandButtons() {
+    document.querySelectorAll('#job-rows tr[data-slug]').forEach((tr) => {
+      const slug = tr.dataset.slug;
+      const isExpanded = expanded?.slug === slug;
+      tr.querySelectorAll('button[data-expand-mode]').forEach((btn) => {
+        const mode = btn.dataset.expandMode;
+        const active = isExpanded && expanded.mode === mode;
+        btn.setAttribute('aria-expanded', active ? 'true' : 'false');
+        btn.classList.toggle('text-secondary', active);
+      });
+    });
+  }
+
+  function renderPanelRow(slug, mode, html) {
+    const tr = document.querySelector(`#job-rows tr[data-slug="${slug}"]`);
+    if (!tr) return null;
+    document.querySelectorAll('#job-rows tr.expanded-panel').forEach((el) => el.remove());
+    const panel = document.createElement('tr');
+    panel.className = 'expanded-panel';
+    panel.dataset.panelSlug = slug;
+    panel.dataset.panelMode = mode;
+    panel.innerHTML = `<td colspan="7" class="p-0 border-b border-outline-variant/30"><div class="p-4 md:p-5 bg-surface-container-lowest/40" id="inline-panel-body" tabindex="-1">${html}</div></td>`;
+    tr.after(panel);
+    return panel;
+  }
+
+  window.toggleExpand = (slug, mode) => {
+    if (expanded?.slug === slug && expanded?.mode === mode) {
+      closePanel();
+      return;
+    }
+    expanded = { slug, mode };
+    if (mode === 'edit') {
+      populateEditPanel(slug);
+    } else if (mode === 'logs') {
+      populateLogsPanel(slug);
+    } else if (mode === 'media') {
+      populateMediaPanel(slug);
+    }
+    updateExpandButtons();
+    setTimeout(() => {
+      document.getElementById('inline-panel-body')?.focus({ preventScroll: true });
+      document.querySelector(`#job-rows tr[data-slug="${slug}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
+  };
+
+  function captureEditValues() {
+    if (!expanded || expanded.mode !== 'edit') return;
+    panelFocusId = document.activeElement?.id || null;
+    expanded.values = {
+      name: $('inlineName')?.value ?? '',
+      urls: $('inlineUrls')?.value ?? '',
+      cmd: $('inlineCmd')?.value ?? '',
+      oauth: $('inlineOauth')?.value ?? '',
+      timeout: $('inlineTimeout')?.value ?? '',
+      schedule: $('inlineSched')?.value ?? '',
+      manual: $('inlineModeManual')?.checked ?? true,
+      cookiesLabel: $('inlineCookiesFileLabel')?.textContent ?? 'Upload cookies.txt',
+    };
+  }
+
+  function restoreEditValues() {
+    if (!expanded?.values) return;
+    const v = expanded.values;
+    if ($('inlineName')) $('inlineName').value = v.name;
+    if ($('inlineUrls')) $('inlineUrls').value = v.urls;
+    if ($('inlineCmd')) $('inlineCmd').value = v.cmd;
+    if ($('inlineOauth')) $('inlineOauth').value = v.oauth;
+    if ($('inlineTimeout')) $('inlineTimeout').value = v.timeout;
+    if ($('inlineSched')) {
+      $('inlineSched').value = v.schedule;
+      $('inlineSched').disabled = v.manual;
+      $('inlineSched').placeholder = v.manual ? '— manual / on-demand —' : '*/5 * * * *';
+    }
+    if ($('inlineModeManual')) $('inlineModeManual').checked = v.manual;
+    if ($('inlineModeCron')) $('inlineModeCron').checked = !v.manual;
+    if ($('inlineCookiesFileLabel')) $('inlineCookiesFileLabel').textContent = v.cookiesLabel;
+    if (panelFocusId && $(panelFocusId)) $(panelFocusId).focus();
+  }
+
+  async function populateEditPanel(slug) {
+    const editFormHtml = `<div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">edit</span><h3 class="font-display font-semibold">Edit task</h3></div>
+        <button type="button" onclick="closePanel()" class="sd-btn sd-btn-icon" title="Close"><span class="material-symbols-outlined text-xs">close</span></button>
+      </div>
+      <form id="fInlineEdit" class="flex flex-col gap-4" onsubmit="saveInlineEdit(event)">
+        <input type="hidden" name="original_slug" id="inlineOriginalSlug" value=""/>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineName">Task name</label>
+            <input id="inlineName" name="name" type="text" required
+              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineSched">Schedule (cron)</label>
+            <div class="flex gap-2">
+              <input id="inlineSched" name="schedule" type="text"
+                class="flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+              <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+                <input id="inlineModeManual" type="radio" name="schedule_mode" value="manual" checked class="accent-[#6366f1]"
+                  onclick="document.getElementById('inlineSched').disabled=true; document.getElementById('inlineSched').placeholder='— manual / on-demand —'; document.getElementById('inlineSched').value=''"/>
+                <span>Manual</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 rounded-[3px] border border-outline-variant/30 bg-surface-container px-2 py-2 cursor-pointer hover:border-badge-checkpoint/40 select-none text-xs font-medium">
+                <input id="inlineModeCron" type="radio" name="schedule_mode" value="cron" class="accent-[#6366f1]"
+                  onclick="document.getElementById('inlineSched').disabled=false; document.getElementById('inlineSched').placeholder='*/5 * * * *';"/>
+                <span>Recurring</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineUrls">Target URLs <span class="text-outline font-normal">(one per line)</span></label>
+          <textarea id="inlineUrls" name="urls" rows="4"
+            class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors resize-y"></textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineOauth">OAuth / Cookie Profile</label>
+            <select id="inlineOauth" name="oauth_site" class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors">
+              <option value="">— No credentials —</option>
+              <option value="deviantart">DeviantArt</option>
+              <option value="reddit">Reddit</option>
+              <option value="flickr">Flickr</option>
+              <option value="tumblr">Tumblr</option>
+              <option value="mastodon">Mastodon</option>
+              <option value="pixiv">Pixiv (requires stdin code flow)</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineCookiesFile">Cookies file (--cookies)</label>
+            <label class="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs cursor-pointer hover:border-badge-checkpoint/40 select-none text-outline">
+              <input type="file" id="inlineCookiesFile" name="cookies_file" accept=".txt" class="hidden"
+                onchange="document.getElementById('inlineCookiesFileLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Upload cookies.txt';"/>
+              <span id="inlineCookiesFileLabel" class="truncate">Upload cookies.txt</span>
+            </label>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineTimeout">Timeout (seconds)</label>
+            <input id="inlineTimeout" name="timeout" type="number" min="0" placeholder="0 = no limit"
+              class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 font-mono text-xs"/>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-mono text-[10px] uppercase tracking-[0.06em] text-outline" for="inlineCmd">Command</label>
+          <input id="inlineCmd" name="command" type="text"
+            class="w-full rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-badge-checkpoint transition-colors"/>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="sd-btn sd-btn-primary"><span class="material-symbols-outlined text-sm">save</span> Save Task</button>
+          <button type="button" onclick="closePanel()" class="sd-btn">Cancel</button>
+        </div>
+      </form>
+    </div>`;
+    renderPanelRow(slug, 'edit', editFormHtml);
+    if (expanded?.values) {
+      restoreEditValues();
+      return;
+    }
+    try {
+      const [t, urls] = await Promise.all([
+        jget('/gdl/api/tasks').then(x => x.tasks.find(y => y.slug === slug)),
+        jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/urls`).catch(() => ({ content: '' }))
+      ]);
+      if (!t) {
+        $('inline-panel-body').innerHTML = `<div class="text-status-alert">Task not found: ${esc(slug)}</div>`;
+        return;
+      }
+      $('inlineOriginalSlug').value = slug;
+      $('inlineName').value = t.name || slug;
+      $('inlineUrls').value = urls?.content || '';
+      $('inlineCmd').value = t.command || DEFAULT_CMD;
+      $('inlineOauth').value = t.oauth_site || '';
+      $('inlineTimeout').value = t.timeout || '';
+      $('inlineSched').disabled = !t.schedule;
+      $('inlineSched').value = t.schedule || '';
+      $('inlineSched').placeholder = t.schedule ? '*/5 * * * *' : '— manual / on-demand —';
+      $('inlineModeCron').checked = !!t.schedule;
+      $('inlineModeManual').checked = !t.schedule;
+      $('inlineCookiesFileLabel').textContent = t.has_cookies ? 'cookies.txt present — replace' : 'Upload cookies.txt';
+    } catch (e) {
+      $('inline-panel-body').innerHTML = `<div class="text-status-alert">Failed to load task for editing: ${esc(e instanceof Error ? e.message : String(e))}</div>`;
+    }
+  }
+
+  async function saveInlineEdit(event) {
+    event.preventDefault();
+    const form = $('fInlineEdit');
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const fd = new FormData(form);
+    const urlsText = fd.get('urls') || '';
+    const urlLines = urlsText.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+    const payload = {
+      name: (fd.get('name') || '').trim(),
+      urls: urlLines,
+      command: ($('inlineCmd').value || '').trim() || DEFAULT_CMD,
+      start: false,
+      schedule: fd.get('schedule_mode') === 'cron' ? (fd.get('schedule') || '').trim() : '',
+      oauth_site: fd.get('oauth_site') || '',
+      cookie_path: fd.get('cookie_file') || '',
+      original_slug: fd.get('original_slug') || '',
+      timeout: fd.get('timeout') || '',
+    };
+    const cookies = fd.get('cookies_file');
+    if (!payload.name) {
+      alert('Task name is required.');
+      btn.disabled = false;
+      return;
+    }
+    try {
+      const body = new FormData();
+      Object.entries(payload).forEach(([k,v]) => body.append(k, Array.isArray(v) ? v.join('\n') : String(v ?? '')));
+      if (cookies && cookies.size) body.set('cookies_file', cookies);
+      const r = await fetch('/gdl/api/tasks', { method: 'POST', credentials: 'same-origin', body });
+      const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || r.status);
+      closePanel();
+      await refresh();
+    } catch (e) {
+      alert('Save failed: ' + (e.message || e));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  window.saveInlineEdit = saveInlineEdit;
+
+  async function populateLogsPanel(slug) {
+    const task = taskRows.find(t => t.slug === slug);
+    const name = task?.name || slug;
+    const html = `<div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-badge-checkpoint">article</span><h3 class="font-display font-semibold">Logs · <span class="text-on-surface font-normal">${esc(name)}</span></h3></div>
+        <div class="flex items-center gap-2">
+          <select id="inline-log-archive" class="rounded border border-outline-variant/30 bg-surface-container-lowest px-2 py-1 font-mono text-xs"><option value="">Archived logs</option></select>
+          <a href="logs?task=${encodeURIComponent(slug)}" class="sd-btn sd-btn-sm">Full logs page</a>
+          <button type="button" onclick="closePanel()" class="sd-btn sd-btn-icon" title="Close"><span class="material-symbols-outlined text-xs">close</span></button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+          <h4 class="mb-2 font-mono text-[10px] uppercase tracking-wider text-outline">Run history</h4>
+          <div id="inline-log-history" class="max-h-48 space-y-2 overflow-y-auto scroll-thin font-mono text-xs text-outline">Loading…</div>
+        </div>
+        <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low p-4">
+          <h4 class="mb-2 font-mono text-[10px] uppercase tracking-wider text-outline">Archived files</h4>
+          <div id="inline-log-archive-list" class="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-outline">Loading…</div>
+        </div>
+      </div>
+      <div class="rounded-lg border border-outline-variant/25 bg-surface-container-low overflow-hidden">
+        <div class="px-3 py-2 bg-surface-container-lowest border-b border-outline-variant/20 flex items-center justify-between">
+          <span class="font-mono text-[11px] font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-xs text-status-active">terminal</span>Live tail</span>
+          <span id="inline-log-state" class="flex items-center gap-1.5 font-mono text-[10px] text-outline"><span class="h-2 w-2 rounded-full bg-outline"></span>Waiting</span>
+        </div>
+        <div id="inline-log-box" class="p-3 bg-[#070a10] font-mono text-[11px] leading-relaxed overflow-y-auto max-h-64 scroll-thin flex flex-col gap-1">Loading…</div>
+      </div>
+    </div>`;
+    renderPanelRow(slug, 'logs', html);
+    await refreshInlineLogs(slug);
+  }
+
+  async function refreshInlineLogs(slug) {
+    if (expanded?.slug !== slug || expanded?.mode !== 'logs') return;
+    const [history, archived, lj, tasks] = await Promise.all([
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/history`).catch(() => null),
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archived`).catch(() => null),
+      jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/log?lines=200`).catch(() => null),
+      jget('/gdl/api/tasks').catch(() => null),
+    ]);
+    const task = tasks?.tasks?.find(t => t.slug === slug);
+    const active = task?.state === 'running';
+    const runs = history?.runs || [];
+    const historyEl = $('inline-log-history');
+    const archiveListEl = $('inline-log-archive-list');
+    const archiveSelect = $('inline-log-archive');
+    const logBox = $('inline-log-box');
+    const logState = $('inline-log-state');
+    if (historyEl) {
+      historyEl.innerHTML = runs.length ? runs.map((run) => {
+        const result = run.stopped
+          ? '<span class="text-status-warning">Stopped</span>'
+          : run.success ? '<span class="text-status-active">Completed</span>' : '<span class="text-status-alert">Failed</span>';
+        return `<div class="flex items-center justify-between gap-3 border-b border-outline-variant/15 pb-2"><span>${result} · exit ${Number(run.exit) || 0}</span><span class="text-outline">${esc(run.ts || '—')} · ${fmtDur(run.duration)}</span></div>`;
+      }).join('') : '<div>No recorded runs yet.</div>';
+    }
+    if (archiveListEl) {
+      const files = archived?.files || [];
+      archiveListEl.innerHTML = files.length ? files.map((file) => {
+        const stamp = String(file.name || '').replace(/^logs-/, '').replace(/\.txt$/, '')
+          .replace('T', ' ').replace(/(\d{2})(\d{2})(\d{2})$/, '$1:$2:$3');
+        const href = `/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archive/${encodeURIComponent(file.name)}`;
+        return `<a href="${href}" class="text-secondary hover:underline">${esc(stamp)} <span class="text-outline">(${fmtBytes(file.size)})</span></a>`;
+      }).join('') : '<span>No archived logs yet.</span>';
+    }
+    if (archiveSelect) {
+      const files = archived?.files || [];
+      archiveSelect.innerHTML = '<option value="">Archived logs</option>' + files.map(f => `<option value="${encodeURIComponent(f.name)}">${esc(f.name)}</option>`).join('');
+      archiveSelect.onchange = () => {
+        const fn = archiveSelect.value;
+        if (slug && fn) location.href = `/gdl/api/tasks/${encodeURIComponent(slug)}/logs/archive/${fn}`;
+      };
+    }
+    if (logBox) {
+      const lines = (lj?.lines || []).slice(-120);
+      logBox.innerHTML = lines.map((l) => `<div class="${/error|failed|exception/i.test(l) ? 'text-status-alert' : /warn|skip|filtered/i.test(l) ? 'text-status-warning' : 'text-outline'}">${esc(l)}</div>`).join('')
+        + '<div class="flex items-center gap-1 text-secondary"><span class="animate-pulse">❯</span><span class="text-outline">tail -f ' + esc(slug) + '</span></div>';
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+    if (logState) {
+      logState.innerHTML = `<span class="h-2 w-2 rounded-full ${active ? 'bg-status-active animate-ping' : 'bg-outline'}"></span>${active ? 'Tailing' : 'Idle'}`;
+    }
+  }
+
+  async function populateMediaPanel(slug) {
+    const task = taskRows.find(t => t.slug === slug);
+    const name = task?.name || slug;
+    const html = `<div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">photo_library</span><h3 class="font-display font-semibold">Recent media · <span class="text-on-surface font-normal">${esc(name)}</span></h3></div>
+        <button type="button" onclick="closePanel()" class="sd-btn sd-btn-icon" title="Close"><span class="material-symbols-outlined text-xs">close</span></button>
+      </div>
+      <div id="inline-film-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4"><div class="col-span-full font-mono text-xs text-outline">Loading task media…</div></div>
+    </div>`;
+    renderPanelRow(slug, 'media', html);
+    const data = await jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/recent`).catch(() => null);
+    if (expanded?.slug !== slug || expanded?.mode !== 'media') return;
+    renderFilm(data?.items || [], `Task: ${name}`, 'inline-film-grid');
+  }
+
+  async function restoreExpandedRow() {
+    if (!expanded) return;
+    const exists = taskRows.some(t => t.slug === expanded.slug);
+    if (!exists) { closePanel(); return; }
+    if (expanded.mode === 'edit') {
+      populateEditPanel(expanded.slug);
+      restoreEditValues();
+    } else if (expanded.mode === 'logs') {
+      await populateLogsPanel(expanded.slug);
+    } else if (expanded.mode === 'media') {
+      await populateMediaPanel(expanded.slug);
+    }
+    updateExpandButtons();
+  }
+
   function row(t) {
     const [label, cls, live] = STATE[t.state] || STATE.idle;
     const pct = Number.isFinite(t.progress) ? t.progress : null;
@@ -469,8 +825,11 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     const bar = pct != null
       ? `<div class="flex justify-between text-[10px] text-outline"><span>${urlLabel}</span><span class="text-white font-bold">${pct}%</span></div><div class="mt-1 h-1.5 rounded-sm bg-surface-container-highest overflow-hidden"><div class="h-full rounded-sm bg-gradient-to-r from-badge-checkpoint to-badge-sdxl transition-all" style="width:${pct}%"></div></div>`
       : `<div class="flex justify-between text-[10px] text-outline"><span>${urlLabel}</span><span>${esc(label || t.state)}</span></div><div class="mt-1 h-1.5 rounded-sm bg-surface-container-highest overflow-hidden">${live ? '<div class="h-full w-1/4 rounded-sm bg-gradient-to-r from-badge-checkpoint to-badge-sdxl animate-pulse"></div>' : ''}</div>`;
-    const mediaBtn = `<button onclick="showTaskMedia('${t.slug}')" class="sd-btn sd-btn-icon hover:text-secondary" title="Recent media from this task"><span class="material-symbols-outlined text-xs">photo_library</span></button>`;
+    const isExpanded = expanded?.slug === t.slug;
+    const mediaBtn = `<button data-expand-mode="media" onclick="toggleExpand('${t.slug}','media')" aria-expanded="${isExpanded && expanded.mode === 'media' ? 'true' : 'false'}" class="sd-btn sd-btn-icon hover:text-secondary ${isExpanded && expanded.mode === 'media' ? 'text-secondary' : ''}" title="Recent media from this task"><span class="material-symbols-outlined text-xs">photo_library</span></button>`;
     const statsBtn = `<button onclick="showTaskDetails('${t.slug}')" class="sd-btn sd-btn-icon hover:text-secondary" title="Stats, history and recent downloads"><span class="material-symbols-outlined text-xs">monitoring</span></button>`;
+    const editBtn = `<button data-expand-mode="edit" onclick="toggleExpand('${t.slug}','edit')" aria-expanded="${isExpanded && expanded.mode === 'edit' ? 'true' : 'false'}" class="sd-btn sd-btn-icon hover:text-secondary ${isExpanded && expanded.mode === 'edit' ? 'text-secondary' : ''}" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button>`;
+    const logsBtn = `<button data-expand-mode="logs" onclick="toggleExpand('${t.slug}','logs')" aria-expanded="${isExpanded && expanded.mode === 'logs' ? 'true' : 'false'}" class="sd-btn sd-btn-icon hover:text-secondary ${isExpanded && expanded.mode === 'logs' ? 'text-secondary' : ''}" title="Logs"><span class="material-symbols-outlined text-xs">article</span></button>`;
     const btns = (t.state === 'running'
       ? `<button onclick="gdlAct('${t.slug}','stop')" class="sd-btn sd-btn-icon hover:text-status-warning" title="Stop"><span class="material-symbols-outlined text-xs">stop</span></button>`
       : `<button onclick="gdlAct('${t.slug}','start')" class="sd-btn sd-btn-icon hover:text-status-active" title="Run now"><span class="material-symbols-outlined text-xs">play_arrow</span></button>`) +
@@ -478,8 +837,8 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       (t.has_archive ? `<button onclick="gdlAct('${t.slug}','delete_archive')" class="sd-btn sd-btn-icon" title="Remove download archive"><span class="material-symbols-outlined text-xs">database</span></button>` : '') +
       (t.has_cookies ? `<button onclick="gdlAct('${t.slug}','delete_cookies')" class="sd-btn sd-btn-icon" title="Remove task cookies"><span class="material-symbols-outlined text-xs">cookie</span></button>` : '') +
       mediaBtn + statsBtn +
-      `<button onclick="editTask('${t.slug}')" class="sd-btn sd-btn-icon hover:text-secondary" title="Edit"><span class="material-symbols-outlined text-xs">edit</span></button><button onclick="gdlAct('${t.slug}','duplicate')" class="sd-btn sd-btn-icon hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button><a href="logs?task=${encodeURIComponent(t.slug)}" class="sd-btn sd-btn-icon hover:text-secondary" title="Logs"><span class="material-symbols-outlined text-xs">article</span></a>`;
-    return `<tr data-task="${esc(`${t.name || ''} ${t.slug || ''} ${t.command || ''}`).toLowerCase()}" data-state="${esc(t.state || 'idle')}" class="hover:bg-slate-surface/30 transition-colors">
+      editBtn + `<button onclick="gdlAct('${t.slug}','duplicate')" class="sd-btn sd-btn-icon hover:text-secondary" title="Duplicate"><span class="material-symbols-outlined text-xs">content_copy</span></button>` + logsBtn;
+    return `<tr data-slug="${esc(t.slug)}" data-task="${esc(`${t.name || ''} ${t.slug || ''} ${t.command || ''}`).toLowerCase()}" data-state="${esc(t.state || 'idle')}" class="hover:bg-slate-surface/30 transition-colors">
       <td class="py-3 px-5 min-w-0"><div class="font-semibold text-white truncate">${esc(t.name || t.slug)}</div><div class="text-outline truncate text-[10px] font-mono">${esc(t.slug)}</div></td>
       <td class="py-3 px-5">${scheduleDisplay}</td>
       <td class="py-3 px-5">${bar}</td>
@@ -490,37 +849,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
     </tr>`;
   }
 
-  window.editTask = async (slug) => {
-    try {
-      const [t, urls] = await Promise.all([
-        jget('/gdl/api/tasks').then(x => x.tasks.find(y => y.slug === slug)),
-        jget(`/gdl/api/tasks/${encodeURIComponent(slug)}/urls`).catch(() => ({ content: '' }))
-      ]);
-      if (!t) {
-        alert('Task not found: ' + slug);
-        return;
-      }
-      $('originalSlug').value = slug;
-      $('cName').value = t.name || slug;
-      $('cUrls').value = urls?.content || '';
-      $('cCmdBase').value = splitCommand(t.command || DEFAULT_CMD);
-      $('cOauth').value = t.oauth_site || '';
-      $('cTimeout').value = t.timeout || '';
-      $('cCookiesFileLabel').textContent = t.has_cookies ? 'cookies.txt present — replace' : 'Upload cookies.txt';
-      $('cSched').disabled = !t.schedule;
-      $('cSched').value = t.schedule || '';
-      $('cSched').placeholder = t.schedule ? '*/5 * * * *' : '— manual / on-demand —';
-      $('cModeCron').checked = !!t.schedule;
-      $('cModeManual').checked = !t.schedule;
-      $('cStart').checked = false;
-      buildCommand();
-      $('fCreate').querySelector('button[type="submit"]').innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Save Task';
-      $('new-task-form').scrollIntoView({behavior:'smooth'}); $('cName').focus();
-    } catch (e) {
-      alert('Failed to load task for editing: ' + (e instanceof Error ? e.message : String(e)));
-      console.error('editTask error:', e);
-    }
-  };
+  window.editTask = (slug) => toggleExpand(slug, 'edit');
 
   function statCard(label, value) {
     return `<div class="rounded-lg border border-outline-variant/25 bg-surface-container-low px-3 py-2">
@@ -616,18 +945,23 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       </div>
     </div>`;
   }
-  let filmKey = '';
-  function renderFilm(items, label) {
-    $('media-dir').textContent = label || 'Downloads';
-    $('film-show-all').classList.toggle('hidden', !filmTask);
-    // Avoid rebuilding (and re-requesting thumbnails) every poll when nothing
-    // new landed.
+  const filmKeys = new Map();
+  function renderFilm(items, label, targetId = 'film-grid') {
+    const grid = $(targetId);
+    if (!grid) return;
+    if (targetId === 'film-grid') {
+      $('media-dir').textContent = label || 'Downloads';
+      $('film-show-all').classList.toggle('hidden', !filmTask);
+    }
     const key = `${label}|${items.map((item) => item.rel).join('|')}`;
-    if (key === filmKey) return;
-    filmKey = key;
-    $('film-grid').innerHTML = items.length
+    if (filmKeys.get(targetId) === key) return;
+    filmKeys.set(targetId, key);
+    const emptyMsg = targetId === 'film-grid'
+      ? (filmTask ? 'No media found for this task yet.' : 'No downloaded media found yet.')
+      : 'No media found for this task yet.';
+    grid.innerHTML = items.length
       ? items.map(filmCard).join('')
-      : `<div class="col-span-full font-mono text-xs text-outline">${filmTask ? 'No media found for this task yet.' : 'No downloaded media found yet.'}</div>`;
+      : `<div class="col-span-full font-mono text-xs text-outline">${emptyMsg}</div>`;
   }
   window.showTaskMedia = async (slug) => {
     const task = taskRows.find((item) => item.slug === slug);
@@ -648,6 +982,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   async function refreshTasks() {
     if (tasksBusy) return;
     tasksBusy = true;
+    if (expanded?.mode === 'edit') captureEditValues();
     try {
       const [tj, q] = await Promise.all([
         jget('/gdl/api/tasks').catch(() => null),
@@ -666,6 +1001,7 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
       taskRows = tasks;
       $('tele-tasks').textContent = `${tasks.length} tasks`;
       applyTaskFilters();
+      await restoreExpandedRow();
       const focus = tasks.find((t) => t.state === 'running') || tasks[0];
       if (focus) {
         $('tail-task').textContent = '· ' + (focus.name || focus.slug);
@@ -752,6 +1088,12 @@ tailwind.config = { darkMode: "class", theme: { extend: { colors: {
   scheduleSlow(4000);
   window.addEventListener('pageshow', () => void refresh());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && expanded) {
+      e.preventDefault();
+      closePanel();
+    }
+  });
 })();
 </script>
 </body>
